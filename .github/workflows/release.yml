@@ -1,0 +1,92 @@
+name: Auto Release
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'  # 忽略Markdown文件变更（按需调整）
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.message, '.')  # 基础过滤
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Parse commit message
+      id: parse-commit
+      run: |
+        COMMIT_MSG="${{ github.event.head_commit.message }}"
+        echo "Commit message: $COMMIT_MSG"
+        
+        # 提取版本号和类型
+        if [[ $COMMIT_MSG =~ ([0-9]+\.[0-9]+)pt1$ ]]; then
+          echo "::set-output name=VERSION::${BASH_REMATCH[1]}"
+          echo "::set-output name=RELEASE_TYPE::pt1"
+          echo "::set-output name=TITLE::Lesta服${BASH_REMATCH[1]}版本PT1"
+          echo "::set-output name=ASSET_DIR::PT/latest"
+          
+        elif [[ $COMMIT_MSG =~ ([0-9]+\.[0-9]+)pt2$ ]]; then
+          echo "::set-output name=VERSION::${BASH_REMATCH[1]}"
+          echo "::set-output name=RELEASE_TYPE::pt2"
+          echo "::set-output name=TITLE::Lesta服${BASH_REMATCH[1]}版本PT2"
+          echo "::set-output name=ASSET_DIR::PT/latest"
+          
+        elif [[ $COMMIT_MSG =~ ([0-9]+\.[0-9]+)$ ]]; then
+          echo "::set-output name=VERSION::${BASH_REMATCH[1]}"
+          echo "::set-output name=RELEASE_TYPE::live"
+          echo "::set-output name=TITLE::Lesta服${BASH_REMATCH[1]}版本"
+          echo "::set-output name=ASSET_DIR::Live/latest"
+          
+        else
+          echo "::set-output name=VALID_COMMIT::false"
+          echo "No valid release pattern found"
+        fi
+
+    - name: Create asset package
+      if: steps.parse-commit.outputs.VERSION
+      run: |
+        VERSION="${{ steps.parse-commit.outputs.VERSION }}"
+        ASSET_DIR="${{ steps.parse-commit.outputs.ASSET_DIR }}"
+        RELEASE_TYPE="${{ steps.parse-commit.outputs.RELEASE_TYPE }}"
+        
+        # 创建压缩包
+        ZIP_NAME="${RELEASE_TYPE}_${VERSION}.zip"
+        cd "${{ github.workspace }}"
+        
+        if [ -d "$ASSET_DIR" ]; then
+          echo "Packaging directory: $ASSET_DIR"
+          zip -r $ZIP_NAME "$ASSET_DIR"
+          echo "::set-output name=ZIP_PATH::${{ github.workspace }}/$ZIP_NAME"
+        else
+          echo "::error::Directory $ASSET_DIR not found!"
+          exit 1
+        fi
+
+    - name: Create Release
+      id: create_release
+      if: steps.parse-commit.outputs.VERSION
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: release-${{ steps.parse-commit.outputs.VERSION }}-${{ steps.parse-commit.outputs.RELEASE_TYPE }}
+        release_name: ${{ steps.parse-commit.outputs.TITLE }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      if: steps.parse-commit.outputs.VERSION
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{ github.workspace }}/${{ steps.parse-commit.outputs.RELEASE_TYPE }}_${{ steps.parse-commit.outputs.VERSION }}.zip
+        asset_name: ${{ steps.parse-commit.outputs.RELEASE_TYPE }}_${{ steps.parse-commit.outputs.VERSION }}.zip
+        asset_content_type: application/zip
