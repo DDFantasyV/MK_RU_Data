@@ -113,7 +113,7 @@ jobs:
             echo "::set-output name=VERSION::${VERSION}"
             echo "::set-output name=RELEASE_TYPE::live"
             echo "::set-output name=TITLE::Lesta服${VERSION}版本"
-            echo "::set-output name=ASSET_DIR::live/latest"
+            echo "::set-output name=ASSET_DIR::Live/latest"
           
           elif [[ $COMMIT_MSG =~ ([0-9]+\.[0-9]+)pt2$ ]]; then
             BASE_VERSION="${BASH_REMATCH[1]}"
