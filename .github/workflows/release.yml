@@ -126,7 +126,7 @@ jobs:
             echo "::set-output name=VERSION::${VERSION}"
             echo "::set-output name=RELEASE_TYPE::live"
             echo "::set-output name=TITLE::Lesta服${VERSION}版本"
-            echo "::set-output name=ASSET_DIR::live/latest"
+            echo "::set-output name=ASSET_DIR::Live/latest"
           
           else
             echo "::set-output name=VALID_COMMIT::false"
