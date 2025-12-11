@@ -109,6 +109,8 @@ jobs:
             MINOR=$(echo $BASE_VERSION | cut -d. -f2)
             MINOR=$((MINOR - 1))
             VERSION="${MAJOR}.${MINOR}"
+            if VERSION == "26.0"
+              VERSION = "25.12"
             
             echo "::set-output name=VERSION::${VERSION}"
             echo "::set-output name=RELEASE_TYPE::live"
