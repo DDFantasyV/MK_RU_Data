@@ -109,9 +109,10 @@ jobs:
             MINOR=$(echo $BASE_VERSION | cut -d. -f2)
             MINOR=$((MINOR - 1))
             VERSION="${MAJOR}.${MINOR}"
-            if VERSION == "26.0"
+            if [[ $VERSION == "26.0" ]]; then
               VERSION = "25.12"
-            
+            fi
+          
             echo "::set-output name=VERSION::${VERSION}"
             echo "::set-output name=RELEASE_TYPE::live"
             echo "::set-output name=TITLE::Lesta服${VERSION}版本"
