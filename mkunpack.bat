@@ -23,7 +23,7 @@ set /a old_minor_ver=minor_ver - 1
 if %old_minor_ver% lss 10 (
     set "old_minor_ver=0%old_minor_ver%"
 )
-set "old_chs_version=%major_ver%.%old_minor_ver%"
+set "old_version=%major_ver%.%old_minor_ver%"
 if not exist "Live\%old_version%" (
 	ren "Live\latest" "%old_version%"
 	mkdir "Live\latest"
