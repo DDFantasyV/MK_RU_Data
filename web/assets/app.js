@@ -40,18 +40,6 @@ function fmtVal(v) {
   return s === '' ? '""' : s;
 }
 
-function fmtBytes(n) {
-  if (!n) return '';
-  if (n < 1024) return n + ' B';
-  if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
-  return (n / 1024 / 1024).toFixed(1) + ' MB';
-}
-
-/* Windows build paths -> URL-ish display */
-function fmtRel(rel) {
-  return esc(String(rel || '').replace(/\\/g, '/'));
-}
-
 function f1(n) {
   return n.toLocaleString('zh-CN');
 }
@@ -187,20 +175,6 @@ function renderPeriodShell(p) {
         <span class="sep">/</span>
         <span class="old">对比 ${esc(o.channel)} ${esc(o.label)}</span>
       </h2>
-
-      <div class="pv-compare">
-        <div class="side-card old">
-          <div class="side-label">旧版基线</div>
-          <div class="side-name">${esc(o.channel)} ${esc(o.label)}</div>
-          <div class="side-meta">${fmtRel(o.rel)} · ${fmtBytes(o.size)}</div>
-        </div>
-        <div class="arrow-mid">→</div>
-        <div class="side-card new">
-          <div class="side-label">新版</div>
-          <div class="side-name">${esc(n.channel)} ${esc(n.label)}</div>
-          <div class="side-meta">${fmtRel(n.rel)} · ${fmtBytes(n.size)}</div>
-        </div>
-      </div>
 
       <div class="rule-note">
         <span class="rule-pill">${ruleLabel(p.rule)}</span>
