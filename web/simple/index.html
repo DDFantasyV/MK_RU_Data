@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN" data-base="../" data-edition="simple">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="战舰世界（Мир кораблей）GameParams 数据变更" data-i18n-content="战舰世界（Мир кораблей）GameParams 数据变更">
+<title data-i18n="Мир кораблей 数据变更">Мир кораблей 数据变更</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230d1219'/%3E%3Cpath d='M12 5v9M7 9h10M4 15c2.5 2 5 3 8 3s5.5-1 8-3' stroke='%2357c8ff' stroke-width='1.7' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="simple">
+<header class="topbar">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3v11"/><path d="M7 8h10"/><path d="M4 15c2.5 2 5 3 8 3s5.5-1 8-3"/>
+      </svg>
+    </div>
+    <div class="brand-text">
+      <h1 data-i18n-html="Мир кораблей <span>数据变更</span>">Мир кораблей <span>数据变更</span></h1>
+      <p data-i18n-html="逐期对比 <code>GameParams.data</code> 的条目增删与字段改动">逐期对比 <code>GameParams.data</code> 的条目增删与字段改动</p>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <div class="topbar-tools">
+      <div class="mode-switch" role="group" aria-label="版本模式" data-i18n-aria-label="版本模式">
+        <a class="mode-btn" data-mode="pro" href="../index.html" data-i18n="专业版">专业版</a>
+        <a class="mode-btn" data-mode="simple" href="index.html" data-i18n="简洁版">简洁版</a>
+      </div>
+      <label class="lang-picker" title="切换语言" data-i18n-title="切换语言">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M3 12h18"/>
+          <path d="M12 3c2.6 2.7 3.9 5.7 3.9 9s-1.3 6.3-3.9 9c-2.6-2.7-3.9-5.7-3.9-9S9.4 5.7 12 3z"/>
+        </svg>
+        <select id="langSelect" aria-label="切换语言" data-i18n-aria-label="切换语言"></select>
+      </label>
+    </div>
+  </div>
+</header>
+
+<main class="simple-layout">
+  <aside class="simple-side" aria-label="战舰变更" data-i18n-aria-label="战舰变更">
+    <div class="side-head">
+      <span data-i18n="战舰变更">战舰变更</span>
+      <span class="muted" id="shipCount"></span>
+    </div>
+    <div class="side-legend">
+      <span class="c-a">+ <span data-i18n="新增">新增</span></span>
+      <span class="c-r">− <span data-i18n="删除">删除</span></span>
+      <span class="c-m">~ <span data-i18n="修改">修改</span></span>
+    </div>
+    <div class="side-search">
+      <input id="shipSearch" type="search" placeholder="搜索战舰…" data-i18n-placeholder="搜索战舰…"
+             aria-label="搜索战舰…" data-i18n-aria-label="搜索战舰…" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="side-list" id="shipList">
+      <div class="skeleton-list"></div>
+    </div>
+  </aside>
+
+  <section class="simple-main">
+    <section class="simple-hero">
+      <div class="pv-kicker" id="simpleKicker"></div>
+      <h2 class="pv-title" id="simpleTitle"></h2>
+      <p class="simple-sub" data-i18n="简洁视图：只列出战舰及其配件的变更">简洁视图：只列出战舰及其配件的变更</p>
+    </section>
+
+    <div class="simple-bar">
+      <div class="channel-switch" id="simpleChannels" role="tablist" aria-label="数据来源" data-i18n-aria-label="数据来源">
+        <button type="button" data-ch="PT" class="on" role="tab"><span data-i18n="测试服 PT">测试服 PT</span><span class="n" id="simpleCountPT"></span></button>
+        <button type="button" data-ch="Live" role="tab"><span data-i18n="正式服 Live">正式服 Live</span><span class="n" id="simpleCountLive"></span></button>
+      </div>
+      <label class="period-pick">
+        <span data-i18n="期次">期次</span>
+        <select id="periodSelect" aria-label="选择期次" data-i18n-aria-label="选择期次"></select>
+      </label>
+    </div>
+
+    <div class="simple-chips" id="simpleStats"></div>
+
+    <div class="simple-toolbar">
+      <div class="search">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+        </svg>
+        <input id="simpleSearch" type="search" placeholder="搜索条目名 / 主词条 / 字段路径 / 数值…" data-i18n-placeholder="搜索条目名 / 主词条 / 字段路径 / 数值…" autocomplete="off" spellcheck="false">
+        <button class="clear" id="simpleClear" hidden title="清空" data-i18n-title="清空">×</button>
+      </div>
+      <div class="seg" id="simpleKind">
+        <button type="button" data-kind="all" class="on" data-i18n="全部">全部</button>
+        <button type="button" data-kind="a" data-i18n="新增">新增</button>
+        <button type="button" data-kind="r" data-i18n="删除">删除</button>
+        <button type="button" data-kind="m" data-i18n="修改">修改</button>
+      </div>
+    </div>
+
+    <div class="result-meta" id="simpleMeta"></div>
+    <div class="empty-state" id="simpleEmpty" hidden></div>
+    <div class="entries" id="simpleList"></div>
+    <div class="simple-more" id="simpleMore"></div>
+  </section>
+</main>
+
+<footer class="footer">
+  <span id="generatedAt"></span>
+  <span class="dot">·</span>
+  <span><span data-i18n="数据来源：">数据来源：</span><a href="https://github.com/DDFantasyV/MK_RU_Data" target="_blank" rel="noopener">https://github.com/DDFantasyV/MK_RU_Data</a></span>
+</footer>
+
+<script src="../assets/i18n.js"></script>
+<script src="../assets/chrome.js"></script>
+<script src="../assets/fields.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

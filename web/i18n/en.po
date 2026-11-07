@@ -1,0 +1,357 @@
+# English — GameParams change browser for Мир кораблей
+#
+# msgid is the Simplified Chinese source string; msgstr is the English translation.
+# Keep every {placeholder} present in the msgid.
+# Validate with: py -3 web/tools/i18n_check.py
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: mk-data-web 1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/DDFantasyV/MK_RU_Data/issues\n"
+"POT-Creation-Date: 2026-11-07 19:00+0800\n"
+"PO-Revision-Date: 2026-11-07 19:00+0800\n"
+"Last-Translator: MK_RU_Data\n"
+"Language-Team: English\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+# ============================================================
+# Brand / top bar / footer
+# ============================================================
+
+#. Browser tab title
+msgid "Мир кораблей 数据变更"
+msgstr "Мир кораблей — Data Changes"
+
+#. Site heading (h1; the span is the muted subtitle)
+msgid "Мир кораблей <span>数据变更</span>"
+msgstr "Мир кораблей <span>Data Changes</span>"
+
+#. Tagline under the heading
+msgid "逐期对比 <code>GameParams.data</code> 的条目增删与字段改动"
+msgstr "Period-by-period comparison of entry additions, removals and field changes in <code>GameParams.data</code>"
+
+#. <meta name="description">
+msgid "战舰世界（Мир кораблей）GameParams 数据变更"
+msgstr "World of Warships (Мир кораблей) — GameParams data changes"
+
+#. Footer data-source label, followed by the repository link
+msgid "数据来源："
+msgstr "Data source: "
+
+#. Edition switch: professional
+msgid "专业版"
+msgstr "Pro"
+
+#. Edition switch: simple
+msgid "简洁版"
+msgstr "Simple"
+
+#. Accessible name of the edition switch
+msgid "版本模式"
+msgstr "Edition"
+
+#. Accessible name of the language dropdown
+msgid "切换语言"
+msgstr "Switch language"
+
+#. Language endonym — intentionally kept in its own language
+#, keep-original
+msgid "简体中文"
+msgstr "简体中文"
+
+#. Language endonym — intentionally kept in its own language
+#, keep-original
+msgid "English"
+msgstr "English"
+
+#. Language endonym — intentionally kept in its own language
+#, keep-original
+msgid "Русский"
+msgstr "Русский"
+
+#. Accessible name of the version sidebar
+msgid "版本列表"
+msgstr "Version list"
+
+#. Sidebar section heading
+msgid "版本 / 期次"
+msgstr "Version / period"
+
+#. Data channel: test server
+msgid "测试服 PT"
+msgstr "PT test server"
+
+#. Data channel: live server
+msgid "正式服 Live"
+msgstr "Live server"
+
+#. Accessible name of the data-channel switch
+msgid "数据来源"
+msgstr "Data channel"
+
+# ============================================================
+# Pro edition: loading / sidebar / overview
+# ============================================================
+
+msgid "正在载入数据…"
+msgstr "Loading data…"
+
+msgid "如果长时间无响应，请确认通过 HTTP 服务访问本页（直接双击打开的 file:// 页面可能被浏览器限制读取 JSON）。"
+msgstr "If nothing loads, make sure this page is served over HTTP (opening it directly as file:// may block JSON reads in the browser)."
+
+#. Number of periods in the current channel
+msgid "{n} 期"
+msgid_plural "{n} 期"
+msgstr[0] "{n} period"
+msgstr[1] "{n} periods"
+
+msgid "暂无数据"
+msgstr "No data"
+
+msgid "该数据通道暂时没有可用的期次。"
+msgstr "This data channel has no periods yet."
+
+#. Badge for the newest period; kept short on purpose
+#, keep-original
+msgid "LATEST"
+msgstr "LATEST"
+
+#. Top-bar stat: period count, {channel} is PT or Live
+msgid "{channel} 总期次"
+msgstr "{channel} periods"
+
+msgid "总条目变动"
+msgstr "Entry changes"
+
+msgid "总字段变化"
+msgstr "Field changes"
+
+msgid "版本跨度"
+msgstr "Version span"
+
+# ============================================================
+# Pro edition: comparison rules
+# ============================================================
+
+msgid "对比正式服最新版"
+msgstr "vs. latest Live"
+
+msgid "对比同版本上一测试版"
+msgstr "vs. previous PT build"
+
+msgid "对比上一正式服版本"
+msgstr "vs. previous Live release"
+
+msgid "对比同版本PT版"
+msgstr "vs. PT of the same version"
+
+msgid "对比PT服最新版本"
+msgstr "vs. latest PT"
+
+msgid "对比旧版本"
+msgstr "vs. previous version"
+
+msgid "最新测试服 PT"
+msgstr "Latest PT build"
+
+msgid "最新正式服 Live"
+msgstr "Latest Live release"
+
+#. {channel} / {label} are version identifiers, kept verbatim
+msgid "对比 {channel} {label}"
+msgstr "vs. {channel} {label}"
+
+msgid "旧版 {old} 条 → 新版 {new} 条"
+msgstr "Old {old} entries → new {new} entries"
+
+# ============================================================
+# Pro edition: stat cards / toolbar
+# ============================================================
+
+msgid "新增条目"
+msgstr "Added entries"
+
+msgid "删除条目"
+msgstr "Removed entries"
+
+msgid "修改条目"
+msgstr "Changed entries"
+
+msgid "字段变化"
+msgstr "Field changes"
+
+msgid "全部"
+msgstr "All"
+
+msgid "新增"
+msgstr "Added"
+
+msgid "删除"
+msgstr "Removed"
+
+msgid "修改"
+msgstr "Changed"
+
+msgid "搜索条目名 / 主词条 / 字段路径 / 数值…"
+msgstr "Search entry, parent entry, field path or value…"
+
+msgid "清空"
+msgstr "Clear"
+
+msgid "展开当前页"
+msgstr "Expand page"
+
+msgid "收起当前页"
+msgstr "Collapse page"
+
+msgid "全部类型"
+msgstr "All types"
+
+msgid "显示 {from}–{to} / 共 {total} 条"
+msgstr "Showing {from}–{to} of {total}"
+
+msgid "字段变化 {n} 项"
+msgstr "{n} field changes"
+
+# ============================================================
+# Pro edition: empty states
+# ============================================================
+
+msgid "本期与旧版完全一致"
+msgstr "No changes from the previous version"
+
+msgid "按当前比较口径，GameParams 没有任何条目新增、删除或字段变化。"
+msgstr "Under the current comparison rule, GameParams has no added, removed or changed entries."
+
+msgid "没有匹配的条目"
+msgstr "No matching entries"
+
+msgid "试试放宽筛选条件或清空搜索关键词。"
+msgstr "Try relaxing the filters or clearing the search query."
+
+# ============================================================
+# Entries / field tree
+# ============================================================
+
+#. Number of field changes inside one entry
+msgid "{n} 项"
+msgid_plural "{n} 项"
+msgstr[0] "{n} change"
+msgstr[1] "{n} changes"
+
+msgid "子树内 {n} 处差异"
+msgstr "Differences in subtree: {n}"
+
+msgid "构建时折叠的子树汇总"
+msgstr "Subtree summary folded at build time"
+
+msgid "另有 {n} 处字段差异未显示（超出单条目上限）"
+msgstr "{n} more field differences not shown (per-entry limit reached)"
+
+#. Field names shown in an entry summary
+msgid "编号"
+msgstr "Index"
+
+msgid "等级"
+msgstr "Tier"
+
+msgid "舰种"
+msgstr "Class"
+
+msgid "国家"
+msgstr "Nation"
+
+msgid "名称"
+msgstr "Name"
+
+#. Parent entry of a sub-entry
+msgid "主词条"
+msgstr "Parent entry"
+
+# ============================================================
+# Pro edition: loading progress and errors
+# ============================================================
+
+msgid "正在载入 {label} …"
+msgstr "Loading {label}…"
+
+msgid "正在读取本期差异数据…"
+msgstr "Reading diff data for this period…"
+
+msgid "载入失败"
+msgstr "Load failed"
+
+msgid "无法读取 {path}（{err}）。请通过本地 HTTP 服务访问。"
+msgstr "Could not read {path} ({err}). Serve the page over a local HTTP server."
+
+msgid "无法载入数据"
+msgstr "Could not load data"
+
+msgid "读取 {path} 失败（{err}）。请用 HTTP 服务打开本页，例如在 web 目录执行 python -m http.server。"
+msgstr "Failed to read {path} ({err}). Open this page over HTTP, e.g. run python -m http.server in the web directory."
+
+msgid "数据生成于 {time}"
+msgstr "Data generated {time}"
+
+# ============================================================
+# Simple edition
+# ============================================================
+
+msgid "简洁视图：只列出战舰及其配件的变更"
+msgstr "A compact view limited to ships and their modules"
+
+msgid "正在载入字段清单…"
+msgstr "Loading field list…"
+
+#. Sidebar heading in the simple edition
+msgid "战舰变更"
+msgstr "Ship changes"
+
+#. Sidebar row that clears the ship filter
+msgid "全部战舰"
+msgstr "All ships"
+
+#. Sidebar row for modules that could not be tied to one ship
+msgid "未归属配件"
+msgstr "Unattached modules"
+
+#. Sidebar ship search box
+msgid "搜索战舰…"
+msgstr "Search ships…"
+
+msgid "没有匹配的战舰"
+msgstr "No matching ships"
+
+msgid "该期没有战舰或配件变更"
+msgstr "No ship or module changes in this period"
+
+#. Number of ships in the sidebar
+msgid "{n} 艘"
+msgid_plural "{n} 艘"
+msgstr[0] "{n} ship"
+msgstr[1] "{n} ships"
+
+msgid "期次"
+msgstr "Period"
+
+msgid "选择期次"
+msgstr "Select period"
+
+msgid "加载更多"
+msgstr "Load more"
+
+msgid "已显示全部 {n} 条"
+msgstr "All {n} entries shown"
+
+msgid "该条目已删除，仅保留摘要。"
+msgstr "This entry was removed; only its summary is kept."
+
+msgid "该条目的差异都属于无关字段（模型、特效、装甲、内部标识等），已隐藏。"
+msgstr "Everything that changed here is unrelated to ship data (models, effects, armor, internal IDs, …), so it is hidden."
+
+msgid "{n} 组重复数据已合并显示"
+msgstr "Identical groups merged: {n}"

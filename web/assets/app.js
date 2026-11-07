@@ -1,7 +1,13 @@
-/* GameParams per-period change browser */
+/* GameParams per-period change browser — 专业版 */
 'use strict';
 
+const BASE = (document.documentElement.dataset.base || './').replace(/\/+$/, '') + '/';
 const PAGE_SIZE = 100;
+
+const t = (msgid, vars) => MK_i18n.t(msgid, vars);
+const tn = (msgid, n, vars) => MK_i18n.tn(msgid, n, vars);
+const f1 = (n) => MK_i18n.num(n);
+const fmtBig = (n) => MK_i18n.compact(n);
 
 const state = {
   index: null,
@@ -13,6 +19,12 @@ const state = {
   loading: false,
   pending: null,
   channel: 'PT',
+  empty: {
+    titleKey: '正在载入数据…',
+    titleVars: null,
+    bodyKey: '如果长时间无响应，请确认通过 HTTP 服务访问本页（直接双击打开的 file:// 页面可能被浏览器限制读取 JSON）。',
+    bodyVars: null,
+  },
 };
 
 const el = (id) => document.getElementById(id);
@@ -40,16 +52,34 @@ function fmtVal(v) {
   return s === '' ? '""' : s;
 }
 
-function f1(n) {
-  return n.toLocaleString('zh-CN');
+function channelLabel(channel) {
+  return channel === 'Live' ? t('正式服 Live') : t('测试服 PT');
 }
 
-/* large counters read better in 万 / 亿 */
-function fmtBig(n) {
-  if (!n) return '0';
-  if (n >= 1e8) return (n / 1e8).toFixed(2).replace(/\.?0+$/, '') + ' 亿';
-  if (n >= 1e4) return (n / 1e4).toFixed(2).replace(/\.?0+$/, '') + ' 万';
-  return f1(n);
+function kindLabel(kind) {
+  if (kind === 'a') return t('新增');
+  if (kind === 'r') return t('删除');
+  if (kind === 'm') return t('修改');
+  return kind;
+}
+
+/* empty-state 的文案按“词条 + 变量”保存，切换语言时可以重画 */
+function setEmpty(titleKey, titleVars, bodyKey, bodyVars) {
+  state.empty = {
+    titleKey,
+    titleVars: titleVars || null,
+    bodyKey,
+    bodyVars: bodyVars || null,
+  };
+  paintEmpty();
+}
+
+function paintEmpty() {
+  const box = el('emptyState');
+  if (!box) return;
+  box.hidden = false;
+  box.querySelector('h2').textContent = t(state.empty.titleKey, state.empty.titleVars);
+  box.querySelector('p').textContent = t(state.empty.bodyKey, state.empty.bodyVars);
 }
 
 /* ------------------------------------------------------------- routing */
@@ -65,8 +95,6 @@ function setHash(id) {
 }
 
 /* ------------------------------------------------------------- sidebar */
-const CHANNEL_LABEL = { PT: '测试服 PT', Live: '正式服 Live' };
-
 function channelPeriods() {
   return state.index.periods.filter((p) => p.new.channel === state.channel);
 }
@@ -79,7 +107,7 @@ function groupOf(name) {
 function renderSidebar() {
   const list = el('periodList');
   const periods = channelPeriods();
-  el('periodCount').textContent = periods.length + ' 期';
+  el('periodCount').textContent = tn('{n} 期', periods.length, { n: f1(periods.length) });
 
   const all = state.index.periods;
   el('chCountPT').textContent = all.filter((p) => p.new.channel === 'PT').length;
@@ -103,7 +131,7 @@ function renderSidebar() {
     for (const p of items) {
       const c = p.counts;
       const badge = p.new.isLatest
-        ? '<span class="pitem-badge latest">LATEST</span>'
+        ? `<span class="pitem-badge latest">${esc(t('LATEST'))}</span>`
         : '';
       html += `
         <button class="pitem" type="button" data-id="${esc(p.id)}">
@@ -111,7 +139,7 @@ function renderSidebar() {
             <span class="pitem-name">${esc(p.new.label)}</span>
             ${badge}
           </div>
-          <div class="pitem-vs">vs ${esc(p.old.channel)} ${esc(p.old.label)}</div>
+          <div class="pitem-vs">${esc(t('对比 {channel} {label}', { channel: p.old.channel, label: p.old.label }))}</div>
           <div class="pitem-chips">
             <span class="c-a">+${f1(c.a)}</span>
             <span class="c-r">−${f1(c.r)}</span>
@@ -121,7 +149,7 @@ function renderSidebar() {
     }
   }
   if (!periods.length) {
-    html = '<div class="empty-state" style="padding:24px 12px;font-size:12px">暂无数据</div>';
+    html = `<div class="empty-state" style="padding:24px 12px;font-size:12px">${esc(t('暂无数据'))}</div>`;
   }
   list.innerHTML = html;
 }
@@ -141,21 +169,28 @@ function renderTopStats() {
   const totalFields = ps.reduce((s, p) => s + p.counts.f, 0);
   const names = ps.map((p) => p.new.label);
   el('topstats').innerHTML = `
-    <div class="topstat"><b>${ps.length}</b><span>${esc(state.channel)} 总期次</span></div>
-    <div class="topstat"><b>${fmtBig(totalEntries)}</b><span>总条目变动</span></div>
-    <div class="topstat"><b>${fmtBig(totalFields)}</b><span>总字段变化</span></div>
-    <div class="topstat"><b>${esc(names[names.length - 1] || '—')} → ${esc(names[0] || '—')}</b><span>版本跨度</span></div>`;
+    <div class="topstat"><b>${ps.length}</b><span>${esc(t('{channel} 总期次', { channel: state.channel }))}</span></div>
+    <div class="topstat"><b>${fmtBig(totalEntries)}</b><span>${esc(t('总条目变动'))}</span></div>
+    <div class="topstat"><b>${fmtBig(totalFields)}</b><span>${esc(t('总字段变化'))}</span></div>
+    <div class="topstat"><b>${esc(names[names.length - 1] || '—')} → ${esc(names[0] || '—')}</b><span>${esc(t('版本跨度'))}</span></div>`;
+}
+
+function renderGenerated() {
+  const raw = state.index && state.index.generated;
+  el('generatedAt').textContent = t('数据生成于 {time}', {
+    time: raw ? MK_i18n.dateTime(raw) : '—',
+  });
 }
 
 /* ------------------------------------------------------------- period view */
 function ruleLabel(rule) {
   switch (rule) {
-    case 'latest-vs-latest': return '对比正式服最新版';
-    case 'same-version-prev-patch': return '对比同版本上一测试版';
-    case 'previous-live-release': return '对比上一正式服版本';
-    case 'live-vs-pt': return '对比同版本PT版';
-    case 'live-latest-vs-pt-last': return '对比PT服最新版本';
-    default: return '对比旧版本';
+    case 'latest-vs-latest': return t('对比正式服最新版');
+    case 'same-version-prev-patch': return t('对比同版本上一测试版');
+    case 'previous-live-release': return t('对比上一正式服版本');
+    case 'live-vs-pt': return t('对比同版本PT版');
+    case 'live-latest-vs-pt-last': return t('对比PT服最新版本');
+    default: return t('对比旧版本');
   }
 }
 
@@ -164,54 +199,54 @@ function renderPeriodShell(p) {
   const n = p.new;
   const o = p.old;
   const kicker = n.isLatest
-    ? (n.channel === 'PT' ? '最新测试服 PT' : '最新正式服 Live')
-    : `${CHANNEL_LABEL[n.channel] || n.channel} · ${esc(n.label)}`;
+    ? (n.channel === 'PT' ? t('最新测试服 PT') : t('最新正式服 Live'))
+    : `${channelLabel(n.channel)} · ${n.label}`;
 
   el('periodView').innerHTML = `
     <section class="pv-head">
-      <div class="pv-kicker">${kicker}</div>
+      <div class="pv-kicker">${esc(kicker)}</div>
       <h2 class="pv-title">
         <span class="new">${esc(n.channel)} ${esc(n.label)}</span>
         <span class="sep">/</span>
-        <span class="old">对比 ${esc(o.channel)} ${esc(o.label)}</span>
+        <span class="old">${esc(t('对比 {channel} {label}', { channel: o.channel, label: o.label }))}</span>
       </h2>
 
       <div class="rule-note">
-        <span class="rule-pill">${ruleLabel(p.rule)}</span>
-        <span>旧版 ${f1(c.oldEntries)} 条 → 新版 ${f1(c.newEntries)} 条</span>
+        <span class="rule-pill">${esc(ruleLabel(p.rule))}</span>
+        <span>${esc(t('旧版 {old} 条 → 新版 {new} 条', { old: f1(c.oldEntries), new: f1(c.newEntries) }))}</span>
       </div>
     </section>
 
     <div class="stats">
       <div class="stat" style="--c:var(--green);--c2:var(--green)">
-        <div class="k">新增条目</div><div class="v">${fmtBig(c.a)}</div>
+        <div class="k">${esc(t('新增条目'))}</div><div class="v">${fmtBig(c.a)}</div>
       </div>
       <div class="stat" style="--c:var(--red);--c2:var(--red)">
-        <div class="k">删除条目</div><div class="v">${fmtBig(c.r)}</div>
+        <div class="k">${esc(t('删除条目'))}</div><div class="v">${fmtBig(c.r)}</div>
       </div>
       <div class="stat" style="--c:var(--amber);--c2:var(--amber)">
-        <div class="k">修改条目</div><div class="v">${fmtBig(c.m)}</div>
+        <div class="k">${esc(t('修改条目'))}</div><div class="v">${fmtBig(c.m)}</div>
       </div>
       <div class="stat" style="--c:var(--accent);--c2:var(--accent)">
-        <div class="k">字段变化</div><div class="v">${fmtBig(c.f)}</div>
+        <div class="k">${esc(t('字段变化'))}</div><div class="v">${fmtBig(c.f)}</div>
       </div>
     </div>
 
     <div class="toolbar">
       <div class="seg" id="kindSeg">
-        <button type="button" data-kind="all" class="on">全部<span class="n">${f1(c.a + c.r + c.m)}</span></button>
-        <button type="button" data-kind="a">新增<span class="n">${f1(c.a)}</span></button>
-        <button type="button" data-kind="r">删除<span class="n">${f1(c.r)}</span></button>
-        <button type="button" data-kind="m">修改<span class="n">${f1(c.m)}</span></button>
+        <button type="button" data-kind="all" class="${state.filter.kind === 'all' ? 'on' : ''}">${esc(t('全部'))}<span class="n">${f1(c.a + c.r + c.m)}</span></button>
+        <button type="button" data-kind="a" class="${state.filter.kind === 'a' ? 'on' : ''}">${esc(t('新增'))}<span class="n">${f1(c.a)}</span></button>
+        <button type="button" data-kind="r" class="${state.filter.kind === 'r' ? 'on' : ''}">${esc(t('删除'))}<span class="n">${f1(c.r)}</span></button>
+        <button type="button" data-kind="m" class="${state.filter.kind === 'm' ? 'on' : ''}">${esc(t('修改'))}<span class="n">${f1(c.m)}</span></button>
       </div>
       <div class="search">
         <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
         </svg>
-        <input id="searchInput" type="search" placeholder="搜索条目名 / 主词条 / 字段路径 / 数值…" autocomplete="off" spellcheck="false">
-        <button class="clear" id="searchClear" hidden title="清空">×</button>
+        <input id="searchInput" type="search" placeholder="${esc(t('搜索条目名 / 主词条 / 字段路径 / 数值…'))}" value="${esc(state.filter.q)}" autocomplete="off" spellcheck="false">
+        <button class="clear" id="searchClear" ${state.filter.q ? '' : 'hidden'} title="${esc(t('清空'))}">×</button>
       </div>
-      <button class="btn" id="toggleAllBtn" type="button">展开当前页</button>
+      <button class="btn" id="toggleAllBtn" type="button">${esc(t('展开当前页'))}</button>
     </div>
 
     <div class="typechips" id="typeChips"></div>
@@ -227,9 +262,9 @@ function typeChipsHtml(entries) {
   const counts = new Map();
   for (const e of entries) counts.set(e.t, (counts.get(e.t) || 0) + 1);
   const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-  let html = `<button class="tchip ${state.filter.type === 'all' ? 'on' : ''}" type="button" data-type="all">全部类型<span class="n">${f1(entries.length)}</span></button>`;
-  for (const [t, n] of sorted) {
-    html += `<button class="tchip ${state.filter.type === t ? 'on' : ''}" type="button" data-type="${esc(t)}">${esc(t)}<span class="n">${f1(n)}</span></button>`;
+  let html = `<button class="tchip ${state.filter.type === 'all' ? 'on' : ''}" type="button" data-type="all">${esc(t('全部类型'))}<span class="n">${f1(entries.length)}</span></button>`;
+  for (const [type, count] of sorted) {
+    html += `<button class="tchip ${state.filter.type === type ? 'on' : ''}" type="button" data-type="${esc(type)}">${esc(type)}<span class="n">${f1(count)}</span></button>`;
   }
   return html;
 }
@@ -259,8 +294,6 @@ function filtered() {
   });
 }
 
-const KIND_LABEL = { a: '新增', r: '删除', m: '修改' };
-
 /** A collapsed subtree row stands for many hidden leaves. */
 function fweight(entry) {
   if (!entry.f) return 0;
@@ -270,168 +303,26 @@ function fweight(entry) {
 }
 
 /* ------------------------------------------------------------- field tree */
-const FIELD_CHEV = '<svg class="fchev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>';
-
-/** Split `A_ATBA.HP_BGS_1.ammoList[0]` into path segments. */
-function pathSegments(path) {
-  const out = [];
-  for (const part of path.split('.')) {
-    const m = /^([^\[\]]*)((?:\[\d+\])*)$/.exec(part);
-    if (!m) { out.push(part); continue; }
-    if (m[1]) out.push(m[1]);
-    const idx = m[2].match(/\[\d+\]/g);
-    if (idx) out.push(...idx);
-  }
-  return out;
-}
-
-function segCompare(a, b) {
-  const ia = /^\[(\d+)\]$/.exec(a);
-  const ib = /^\[(\d+)\]$/.exec(b);
-  if (ia && ib) return Number(ia[1]) - Number(ib[1]);
-  if (ia) return 1;
-  if (ib) return -1;
-  return a < b ? -1 : a > b ? 1 : 0;
-}
-
-/** Build (and cache) a collapsible tree from the flat field rows. */
-function buildFieldTree(entry) {
-  if (entry.__tree) return entry.__tree;
-  const root = { key: '', full: '', keys: [], map: new Map(), children: [], row: null, leaves: 0 };
-  const grp = [];
-  for (const row of entry.f) {
-    if (row[3] === 'grp') { grp.push(row); continue; }
-    const segs = pathSegments(row[0]);
-    let node = root;
-    for (const seg of segs) {
-      let child = node.map.get(seg);
-      if (!child) {
-        const full = seg.charAt(0) === '[' ? node.full + seg : (node.full ? node.full + '.' + seg : seg);
-        child = {
-          key: seg, full, keys: node.keys.concat(seg),
-          map: new Map(), children: [], row: null, leaves: 0,
-        };
-        node.map.set(seg, child);
-        node.children.push(child);
-      }
-      node = child;
-    }
-    node.row = row;
-  }
-  const count = (node) => {
-    let n = node.row ? 1 : 0;
-    for (const c of node.children) n += count(c);
-    node.leaves = n;
-    return n;
-  };
-  count(root);
-  const sort = (node) => {
-    node.children.sort((a, b) => segCompare(a.key, b.key));
-    for (const c of node.children) sort(c);
-  };
-  sort(root);
-  entry.__tree = { root, grp };
-  return entry.__tree;
-}
-
-function fieldLeafHtml(node, depth) {
-  const [path, oldV, newV, kind] = node.row;
-  const cls = kind === 'add' ? ' added' : kind === 'del' ? ' removed' : '';
-  const oldTxt = kind === 'add' ? '—' : esc(fmtVal(oldV));
-  const newTxt = kind === 'del' ? '—' : esc(fmtVal(newV));
-  let delta = '';
-  if (kind === 'chg' && typeof oldV === 'number' && typeof newV === 'number' && oldV !== newV) {
-    const d = Number((newV - oldV).toPrecision(10));
-    if (d !== 0) {
-      delta = `<span class="fdelta ${d > 0 ? 'up' : 'down'}">${d > 0 ? '+' : ''}${fmtNum(d)}</span>`;
-    }
-  }
-  return `<div class="frow${cls}" style="--d:${depth}" title="${esc(node.full)}">
-    <span class="fpath">${esc(node.key)}</span>
-    <span class="fold ${kind === 'add' ? 'void' : ''}">${oldTxt}</span>
-    <span class="farr">→</span>
-    <span class="fnew ${kind === 'del' ? 'void' : ''}">${newTxt}</span>
-    ${delta || '<span></span>'}
-  </div>`;
-}
-
-function fieldGroupHtml(node, depth) {
-  return `<div class="frow group" data-fsegs="${esc(JSON.stringify(node.keys))}" style="--d:${depth}" role="button" tabindex="0" aria-expanded="false" title="${esc(node.full)}">
-    <span class="fpath">${FIELD_CHEV}<span class="fkey">${esc(node.key)}</span><span class="fcount">${fmtBig(node.leaves)}</span></span>
-    <span class="fold void">—</span>
-    <span class="farr">→</span>
-    <span class="fnew groupnote">${fmtBig(node.leaves)} 项</span>
-    <span></span>
-  </div>
-  <div class="fchildren" hidden></div>`;
-}
-
-function fieldStaticGrpHtml(row) {
-  return `<div class="frow grp static" title="构建时折叠的子树汇总">
-    <span class="fpath">${esc(row[0])}</span>
-    <span class="fold void">—</span>
-    <span class="farr">→</span>
-    <span class="fnew grpnote">子树内 ${fmtBig(row[2])} 处差异</span>
-    <span></span>
-  </div>`;
-}
-
-function fieldNodeHtml(node, depth) {
-  if (node.children.length) return fieldGroupHtml(node, depth);
-  if (node.row) return fieldLeafHtml(node, depth);
-  return '';
-}
-
-function fieldRowsHtml(entry) {
-  const tree = buildFieldTree(entry);
-  let html = '<div class="fields">';
-  for (const row of tree.grp) html += fieldStaticGrpHtml(row);
-  for (const node of tree.root.children) html += fieldNodeHtml(node, 0);
-  html += '</div>';
-  if (entry.x) {
-    html += `<div class="more-note">另有 ${f1(entry.x)} 处字段差异未显示（超出单条目上限）</div>`;
-  }
-  return html;
-}
-
+/* 树的渲染与折叠在 assets/fields.js，专业版 / 简洁版共用 */
 function toggleFieldGroup(rowEl) {
   const box = rowEl.closest('.entry');
   if (!box) return;
   const entry = state.period.entries.find((e) => e.n === box.dataset.name);
   if (!entry) return;
-  const tree = buildFieldTree(entry);
-  let segs;
-  try { segs = JSON.parse(rowEl.dataset.fsegs || '[]'); } catch (err) { return; }
-  let node = tree.root;
-  for (const seg of segs) {
-    node = node.map.get(seg);
-    if (!node) return;
-  }
-  const wrap = rowEl.nextElementSibling;
-  if (!wrap || !wrap.classList.contains('fchildren')) return;
-
-  if (rowEl.classList.contains('open')) {
-    rowEl.classList.remove('open');
-    rowEl.setAttribute('aria-expanded', 'false');
-    wrap.hidden = true;
-    return;
-  }
-  if (!wrap.dataset.loaded) {
-    let inner = '';
-    for (const child of node.children) inner += fieldNodeHtml(child, segs.length);
-    wrap.innerHTML = inner;
-    wrap.dataset.loaded = '1';
-  }
-  wrap.hidden = false;
-  rowEl.classList.add('open');
-  rowEl.setAttribute('aria-expanded', 'true');
+  MK_fields.toggleGroup(rowEl, entry);
 }
 
 function summaryHtml(entry) {
   if (!entry.s) return '';
   const parts = [];
-  const map = { index: '编号', level: '等级', species: '舰种', nation: '国家', name: '名称' };
-  if (entry.p) parts.push(`<span>主词条 <b>${esc(entry.p)}</b></span>`);
+  const map = {
+    index: t('编号'),
+    level: t('等级'),
+    species: t('舰种'),
+    nation: t('国家'),
+    name: t('名称'),
+  };
+  if (entry.p) parts.push(`<span>${esc(t('主词条'))} <b>${esc(entry.p)}</b></span>`);
   for (const [k, v] of Object.entries(entry.s)) {
     if (v === null || v === '') continue;
     parts.push(`<span>${esc(map[k] || k)} <b>${esc(fmtVal(v))}</b></span>`);
@@ -442,8 +333,9 @@ function summaryHtml(entry) {
 
 function renderEntry(entry) {
   const open = state.expanded.has(entry.n);
+  const weight = fweight(entry);
   const countTxt = entry.f
-    ? `<b>${fmtBig(fweight(entry))}</b> 项`
+    ? `<span class="ecount">${esc(tn('{n} 项', weight, { n: fmtBig(weight) }))}</span>`
     : '';
   const nameHtml = entry.p
     ? `<span class="eparent">${esc(entry.p)}</span><span class="esep">&gt;&gt;</span>${esc(entry.n)}`
@@ -451,13 +343,13 @@ function renderEntry(entry) {
   const fullName = entry.p ? entry.p + ' >> ' + entry.n : entry.n;
   return `<div class="entry${open ? ' open' : ''}${entry.p ? ' sub' : ''}" data-name="${esc(entry.n)}">
     <button class="entry-head" type="button" aria-expanded="${open ? 'true' : 'false'}">
-      <span class="kind kind-${entry.k}">${KIND_LABEL[entry.k]}</span>
+      <span class="kind kind-${entry.k}">${esc(kindLabel(entry.k))}</span>
       <span class="ename" title="${esc(fullName)}">${nameHtml}</span>
       <span class="etype">${esc(entry.t)}</span>
-      ${countTxt ? `<span class="ecount">${countTxt}</span>` : ''}
+      ${countTxt}
       <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>
     </button>
-    ${open ? summaryHtml(entry) + (entry.f ? fieldRowsHtml(entry) : '') : ''}
+    ${open ? summaryHtml(entry) + (entry.f ? MK_fields.rowsHtml(entry) : '') : ''}
   </div>`;
 }
 
@@ -481,22 +373,33 @@ function renderEntries() {
 
   el('entries').innerHTML = slice.map(renderEntry).join('') || (state.period.entries.length === 0
     ? `<div class="empty-state" style="padding:48px 24px">
-         <h2>本期与旧版完全一致</h2>
-         <p>按当前比较口径，GameParams 没有任何条目新增、删除或字段变化。</p>
+         <h2>${esc(t('本期与旧版完全一致'))}</h2>
+         <p>${esc(t('按当前比较口径，GameParams 没有任何条目新增、删除或字段变化。'))}</p>
        </div>`
     : `<div class="empty-state" style="padding:40px">
-         <h2>没有匹配的条目</h2>
-         <p>试试放宽筛选条件或清空搜索关键词。</p>
+         <h2>${esc(t('没有匹配的条目'))}</h2>
+         <p>${esc(t('试试放宽筛选条件或清空搜索关键词。'))}</p>
        </div>`);
 
   const from = view.length ? start + 1 : 0;
   const to = Math.min(start + PAGE_SIZE, view.length);
   el('resultMeta').innerHTML = `
-    <span>显示 <b style="color:var(--text-2)">${f1(from)}–${f1(to)}</b> / 共 ${f1(view.length)} 条</span>
-    <span>字段变化 ${fmtBig(view.reduce((s, e) => s + fweight(e), 0))} 项</span>`;
+    <span>${esc(t('显示 {from}–{to} / 共 {total} 条', { from: f1(from), to: f1(to), total: f1(view.length) }))}</span>
+    <span>${esc(t('字段变化 {n} 项', { n: fmtBig(view.reduce((s, e) => s + fweight(e), 0)) }))}</span>`;
 
   renderPager(totalPages);
   el('typeChips').innerHTML = typeChipsHtml(kindFiltered());
+  updateToggleAll();
+}
+
+function updateToggleAll() {
+  const btn = el('toggleAllBtn');
+  if (!btn || !state.period) return;
+  const view = filtered();
+  const start = state.page * PAGE_SIZE;
+  const slice = view.slice(start, start + PAGE_SIZE);
+  const allOpen = slice.length > 0 && slice.every((e) => state.expanded.has(e.n));
+  btn.textContent = allOpen ? t('收起当前页') : t('展开当前页');
 }
 
 function renderPager(totalPages) {
@@ -523,7 +426,7 @@ function renderPager(totalPages) {
 /* ------------------------------------------------------------- loading */
 async function loadPeriod(id) {
   if (state.periodCache.has(id)) return state.periodCache.get(id);
-  const res = await fetch('data/periods/' + encodeURIComponent(id) + '.json');
+  const res = await fetch(BASE + 'data/periods/' + encodeURIComponent(id) + '.json');
   if (!res.ok) throw new Error('HTTP ' + res.status);
   const data = await res.json();
   state.periodCache.set(id, data);
@@ -552,9 +455,7 @@ async function showPeriod(id) {
   state.pending = null;
   markActive(id);
   setHash(id);
-  el('emptyState').hidden = false;
-  el('emptyState').querySelector('h2').textContent = '正在载入 ' + meta.new.label + ' …';
-  el('emptyState').querySelector('p').textContent = '正在读取本期差异数据…';
+  setEmpty('正在载入 {label} …', { label: meta.new.label }, '正在读取本期差异数据…', null);
 
   try {
     const data = await loadPeriod(id);
@@ -563,15 +464,14 @@ async function showPeriod(id) {
     state.page = 0;
     state.expanded = new Set();
     renderPeriodShell(data);
-    el('toggleAllBtn').textContent = '展开当前页';
     renderEntries();
     window.scrollTo(0, 0);
   } catch (err) {
     el('emptyState').hidden = false;
-    el('emptyState').querySelector('h2').textContent = '载入失败';
-    el('emptyState').querySelector('p').textContent =
-      '无法读取 data/periods/' + id + '.json（' + err.message + '）。请通过本地 HTTP 服务访问。';
     el('periodView').hidden = true;
+    setEmpty('载入失败', null,
+      '无法读取 {path}（{err}）。请通过本地 HTTP 服务访问。',
+      { path: 'data/periods/' + id + '.json', err: err.message });
   } finally {
     state.loading = false;
     if (state.pending && state.pending !== id) {
@@ -579,6 +479,20 @@ async function showPeriod(id) {
       state.pending = null;
       showPeriod(next);
     }
+  }
+}
+
+/* ------------------------------------------------------------- locale */
+function onLocaleChange() {
+  if (!state.index) { paintEmpty(); return; }
+  renderSidebar();
+  renderTopStats();
+  renderGenerated();
+  if (state.period) {
+    renderPeriodShell(state.period);
+    renderEntries();
+  } else {
+    paintEmpty();
   }
 }
 
@@ -602,7 +516,7 @@ function bindEvents() {
       showPeriod(first.id);
     } else {
       el('periodView').hidden = true;
-      el('emptyState').hidden = false;
+      setEmpty('暂无数据', null, '该数据通道暂时没有可用的期次。', null);
     }
   });
 
@@ -645,8 +559,9 @@ function bindEvents() {
         state.expanded.add(name);
         box.classList.add('open');
         head.setAttribute('aria-expanded', 'true');
-        box.insertAdjacentHTML('beforeend', summaryHtml(entry) + (entry.f ? fieldRowsHtml(entry) : ''));
+        box.insertAdjacentHTML('beforeend', summaryHtml(entry) + (entry.f ? MK_fields.rowsHtml(entry) : ''));
       }
+      updateToggleAll();
       return;
     }
 
@@ -667,7 +582,6 @@ function bindEvents() {
         if (allOpen) state.expanded.delete(e.n);
         else state.expanded.add(e.n);
       }
-      el('toggleAllBtn').textContent = allOpen ? '展开当前页' : '收起当前页';
       renderEntries();
     }
   });
@@ -721,14 +635,20 @@ function bindEvents() {
 
 /* ------------------------------------------------------------- boot */
 async function boot() {
+  await MK_i18n.init();
+  MK_chrome.mount();
+  document.addEventListener('mk:localechange', onLocaleChange);
+  paintEmpty();
+
   try {
-    const res = await fetch('data/index.json');
+    const res = await fetch(BASE + 'data/index.json');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     state.index = await res.json();
   } catch (err) {
-    el('emptyState').innerHTML =
-      `<h2>无法载入数据</h2><p>读取 <code>data/index.json</code> 失败（${esc(err.message)}）。` +
-      `请用 HTTP 服务打开本页，例如在 <code>web/</code> 目录执行 <code>python -m http.server</code>。</p>`;
+    el('periodView').hidden = true;
+    setEmpty('无法载入数据', null,
+      '读取 {path} 失败（{err}）。请用 HTTP 服务打开本页，例如在 web 目录执行 python -m http.server。',
+      { path: 'data/index.json', err: err.message });
     return;
   }
 
@@ -738,7 +658,7 @@ async function boot() {
 
   renderSidebar();
   renderTopStats();
-  el('generatedAt').textContent = '数据生成于 ' + (state.index.generated || '—');
+  renderGenerated();
   bindEvents();
 
   const first = channelPeriods()[0];

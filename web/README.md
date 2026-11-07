@@ -2,6 +2,8 @@
 
 静态站点，逐期展示《战舰世界》`GameParams.data` 的相对上一版的**条目增删**与**字段改动**，可直接发布到 GitHub Pages。
 
+站点提供两个版本：根目录的**专业版**（完整侧栏、字段树、分页器）和 `simple/` 下的**简洁版**（只保留战舰及其配件，左侧按战舰汇总新增/删除/修改）；界面支持**简体中文 / English / Русский** 三种语言，默认简体中文。
+
 当前站点只收录 **主版本 25 起** 的数据：PT 期次 24 个（`PT/25.03_1` … `PT/26.11_1`，外加识别为 `26.12_1` 的 `PT/latest`）、Live 期次 21 个（`Live/25.03` … `Live/26.10`，外加识别为 `26.11` 的 `Live/latest`），共 45 期。13.x 及更早的版本不保留。需要其它范围时用 `--from-major` 调整，见下文。
 
 ### `latest` 目录的版本识别
@@ -20,18 +22,76 @@
 
 ```
 web/
-├── index.html            页面外壳
+├── index.html                专业版页面外壳
 ├── assets/
-│   ├── style.css         样式
-│   └── app.js            前端逻辑（无框架、无构建步骤）
+│   ├── style.css             两版共用的配色 / 顶栏 / 条目与字段行样式
+│   ├── i18n.js               词条运行时：解析 i18n/*.po、复数、数字/日期格式
+│   ├── chrome.js             专业版 / 简洁版切换 + 语言下拉框（两版共用）
+│   ├── fields.js             两版共用的字段差异树（按路径折叠）
+│   └── app.js                专业版前端逻辑（无框架、无构建步骤）
+├── simple/                   简洁版工作目录
+│   ├── index.html            简洁版入口
+│   ├── style.css             简洁版覆盖样式（只写覆盖，复用 assets/style.css）
+│   ├── app.js                简洁版逻辑
+│   ├── field-tree.conf       简洁版字段显示清单（自动生成，约 8 MB）
+│   └── README.md             简洁版约定与扩展说明
+├── i18n/
+│   ├── zh_CN.po              简体中文（源语言，msgid 就是界面原文）
+│   ├── en.po                 English
+│   ├── ru.po                 Русский
+│   └── README.md             词条维护说明
 ├── data/
-│   ├── index.json         期次索引（含每期统计）
-│   └── periods/<id>.json  每期的差异数据，按需加载
-└── tools/                 本地生成脚本（不参与页面功能）
-    ├── gpdiff.py          GameParams 解码 / 归一化 / 差异 / 折叠
-    ├── build.py           期次配对 + 生成 data/
-    └── reindex.py         仅用已有 periods/*.json 重建 index.json
+│   ├── index.json            期次索引（含每期统计）
+│   └── periods/<id>.json     每期的差异数据，按需加载
+└── tools/                    本地脚本（不参与页面功能）
+    ├── gpdiff.py             GameParams 解码 / 归一化 / 差异 / 折叠
+    ├── build.py              期次配对 + 生成 data/
+    ├── reindex.py            仅用已有 periods/*.json 重建 index.json
+    ├── i18n_check.py         校验三种语言的词条与源码引用
+    └── gen_simple_fields.py  生成简洁版字段显示清单 field-tree.conf
 ```
+
+## 专业版 / 简洁版
+
+| | 专业版（`/`） | 简洁版（`/simple/`） |
+| --- | --- | --- |
+| 期次入口 | 左侧版本侧栏 + PT/Live 分段 | PT/Live 分段 + 期次下拉框 |
+| 战舰导航 | 无（按版本列表浏览） | 左侧列出发生变更的战舰，带新增/删除/修改计数 |
+| 条目列表 | 全部类型，分页器每页 100 条 | 仅战舰及配件，每次 60 条，“加载更多” |
+| 字段差异 | 按路径折叠的树，可逐层展开 | 与专业版相同的折叠树（共用 `assets/fields.js`） |
+| 其他 | 顶部汇总卡、类型标签云、展开当前页 | 四个计数、搜索、变更类型筛选、战舰搜索 |
+
+简洁版只收录**战舰本体与配件**：`Ship`、`Unit`、`Component`、`Gun`、`Projectile`、`Aircraft`、`Radar`、`Director`、`Finder`、`Catapult`、`Modernization`、`Ability`，以及挂在某艘战舰下的 `Other`（RageMode 等舰船机制）。涂装、旗帜、贴花（`Exterior`）、`Crew`、`Achievement`、`Collection`、`Campaign`、`DogTag`、`Building`、`BattleScript` 等独立内容不显示；无法归属到具体战舰的配件会收进左侧的“未归属配件”。规则写在 `simple/app.js` 顶部的 `SHIP_TYPES` / `isShipRelated()`。
+
+简洁版的字段树由 `simple/field-tree.conf` 控制，采用**继承语义**：`true` 显示该节点及其整棵子树，`false` 隐藏该节点及其整棵子树；没写到的子路径继承父项，顶级路径默认不显示（祖先 `false` 优先于更深层的 `true`）。该文件由 `py -3 web/tools/gen_simple_fields.py` 扫描所有期次的战舰相关条目生成（全量约 14.7 万条路径 / 8 MB；`--max-depth N` 可只输出到第 N 层）；`--reset` 可按默认值重写。生成脚本会按顶部规则把模型/特效等资源路径、内部 `id` 与键名、装甲厚度/系数/分区映射、以及 `AIParams` / `BattleUpgradeInfo` / `formations` 这类非战舰系统置为 `false`（规则全开时约 4.6 万条），`--all-true` 则忽略规则、全部写成 `true`。**当前清单只保留 1 485 条一级路径（`--max-depth 1`），一级 `true` 即代表整棵子树显示；某个条目的差异若全被清单隐藏，该条目不再出现在列表和统计里。** 规则与调整方式见 `simple/README.md`。
+
+简洁版渲染字段树时还会把**同一层里内容完全相同的同族实例**（`HP_AGS_1…10`、`AuraFar` / `AuraFar_Bubbles`、`A_Hull` / `B_Hull`）合并成一组显示，组名后标 `×N`；数组下标与纯数字键不合并，取值恰好相同的不同参数也不合并。逻辑在 `assets/fields.js`，`simple/app.js` 通过 `{ mergeDuplicates: true }` 开启，专业版不受影响。
+
+两个页面共用 `data/`、`i18n/`、`assets/style.css`、`assets/fields.js` 和顶栏控件；切换时保留当前期次（`#/pt-26.12_1`）与语言设置。**新增功能请放在各自目录**：专业版改 `assets/app.js`，简洁版改 `simple/app.js`，共用样式改 `assets/style.css`，字段树改 `assets/fields.js`。
+
+## 界面文案与多语言
+
+界面上的每一段文字都来自 `web/i18n/*.po`，采用 gettext 的 **msgid → msgstr** 结构：
+
+```po
+msgid "新增条目"                 # 简体中文原文（源语言）
+msgstr "Added entries"           # 英文译文
+```
+
+* 默认语言 **简体中文**；可在顶栏切换 **English / Русский**。选择存于 `localStorage.mk.locale`，也可用 `?lang=en` / `?lang=ru` 直接打开（如 `http://127.0.0.1:8000/simple/?lang=ru`）。
+* 代码里用 `t('中文原文', {占位符})`；带数量的文案用 `tn('中文原文', n, …)`，俄语复数由 `msgid_plural` + `msgstr[0..2]` 提供，运行时按 `Intl.PluralRules` 选形式。
+* HTML 静态文案用 `data-i18n`（纯文本）、`data-i18n-html`（含 `<code>` / `<span>` 等受信任标签）、`data-i18n-placeholder`、`data-i18n-title`、`data-i18n-aria-label`、`data-i18n-content` 标注。
+* 占位符写作 `{name}`，译文必须保留同名占位符；数字、日期用 `Intl.NumberFormat` / `Intl.DateTimeFormat` 跟随当前语言，不写进词条。
+* `简体中文` / `English` / `Русский` 三个语言名以各自语言显示（词条中标记 `#, keep-original`）。
+* 新增语言的步骤：在 `i18n/` 放一份 `<code>.po`，在 `assets/i18n.js` 的 `LOCALES` 里补一项（`code` / `file` / Intl `tag` / 复数类别映射），顶栏下拉框会自动出现该语言。
+
+改完词条或新增文案后运行校验：
+
+```powershell
+py -3 web/tools/i18n_check.py
+```
+
+它会检查：三种语言的 msgid 集合一致、英文/俄文无空译文、占位符与 HTML 标签一致、源码 `t()` / `tn()` / `setEmpty()` / `data-i18n*` 用到的词条都存在，并提示已不再使用的词条。
 
 ## 期次配对规则
 
@@ -77,22 +137,31 @@ PBSB521_Beatty >> PBPA311_508MM_HE_BEATTY
 ```powershell
 cd web
 python -m http.server 8000
-# 打开 http://127.0.0.1:8000
 ```
 
-直接双击 `index.html`（`file://`）会被浏览器的跨域策略拦住 `fetch`，必须走 HTTP。
+* 专业版：<http://127.0.0.1:8000/>
+* 简洁版：<http://127.0.0.1:8000/simple/>
+* 指定语言：<http://127.0.0.1:8000/?lang=en>、<http://127.0.0.1:8000/simple/?lang=ru>
+
+直接双击 `index.html`（`file://`）会被浏览器的跨域策略拦住 `fetch`（数据 JSON 和词条 `.po` 都读不到），必须走 HTTP。
 
 ## 重新生成数据
 
 仓库根目录需要存在 `Live/` 与 `PT/` 的拆包结果（由 `mkunpack.bat` 生成）。
 
-**`mkunpack.bat` 现在是全自动的**：拆包 → 增量构建站点数据 → `git add .` → `git commit -m "update to <PT版本号>"` → `git push`，任一步失败就停下来并说明原因。一般不需要手动执行下面的命令；只有单独重建时才用：
+**`mkunpack.bat` 现在是全自动的**：拆包 → 增量构建站点数据 → 生成简洁版字段清单 → `git add .` → `git commit -m "update to <PT版本号>"` → `git push`，任一步失败就停下来并说明原因。一般不需要手动执行下面的命令；只有单独重建时才用：
 
 ```powershell
 python web/tools/build.py --from-major 25   # 当前站点：25.x 起（含 26.x 与 latest）
 python web/tools/build.py --from-major 25 --force   # 强制全部重建
 python web/tools/build.py                   # 全部系列（含 12.x / 13.x）
 python web/tools/build.py --from-major 25 --plan   # 只打印配对关系，不解码
+```
+
+构建完成后同步简洁版的字段清单（`mkunpack.bat` 已包含这一步；单独重建数据时需要手动补跑，保留已有的 `false`，新增路径默认 `true`）：
+
+```powershell
+py -3 web/tools/gen_simple_fields.py
 ```
 
 提交信息取自 `workspace/cn` 下最新的 PT 目录名（形如 `26.12pt1`），所以最终是 `update to 26.12pt1` —— 正好匹配 `release.yml` 里的 `([0-9]+\.[0-9]+)pt1$`，出包和部署会一起触发。
@@ -102,6 +171,7 @@ python web/tools/build.py --from-major 25 --plan   # 只打印配对关系，不
 * **拆包结果只按「输出文件是否存在」判定**：拆完在 `Live\latest`、`PT\latest` 下找不到 `GameParams*.data` 就标记失败。不看 `pfsunpack.exe` 的退出码 —— 不同版本对成功/失败的返回码并不可靠。
 * `copy idx`、`copy global.mo` 失败同样标记失败（这两条是明确的文件复制，退出码可信）。
 * 标记失败时**跳过构建与推送**，避免把半成品写进缓存和线上。
+* 简洁版字段清单生成失败同样会停止，避免新增字段路径没进 `field-tree.conf`。
 * 构建失败、`git add/commit/push` 失败、当前目录不是 git 仓库 → 各自给出提示并停止，不会留下半推状态。
 
 > 存在性检查的边界：如果 `pfsunpack` 完全没执行、而 `latest` 里还留着上一次的文件，检查会通过。实践中 `copy idx` 那一步通常先失败并拦住这种情况；真要保险，可以在拆包前先 `del "PT\latest\content\GameParams*.data"`。

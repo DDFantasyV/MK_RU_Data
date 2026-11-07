@@ -1,0 +1,259 @@
+/* 简洁版专属样式：复用 assets/style.css 的配色、顶栏、条目卡片与字段行，
+   只覆盖布局（左侧战舰导航 + 窄版正文）。 */
+
+.simple-layout {
+  display: grid;
+  grid-template-columns: 282px minmax(0, 1fr);
+  max-width: 1440px;
+  margin: 0 auto;
+  align-items: start;
+}
+
+/* ------------------------------------------------ ship navigation */
+.simple-side {
+  position: sticky;
+  top: var(--topbar-h, 71px);
+  height: calc(100vh - var(--topbar-h, 71px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--border-soft);
+}
+
+.side-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 16px 8px;
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  flex: none;
+}
+
+.side-legend {
+  display: flex;
+  gap: 10px;
+  padding: 0 12px 10px;
+  font-size: 10.5px;
+  color: var(--muted);
+  flex: none;
+}
+.side-legend .c-a { color: var(--green); }
+.side-legend .c-r { color: var(--red); }
+.side-legend .c-m { color: var(--amber); }
+
+.side-search { padding: 0 12px 10px; flex: none; }.side-search input {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.side-search input:focus {
+  border-color: rgba(87, 200, 255, .5);
+  box-shadow: 0 0 0 3px rgba(87, 200, 255, .1);
+}
+
+.side-list {
+  overflow-y: auto;
+  padding: 0 8px 24px;
+  scrollbar-width: thin;
+  scrollbar-color: #24313f transparent;
+}
+.side-list::-webkit-scrollbar { width: 8px; }
+.side-list::-webkit-scrollbar-thumb { background: #24313f; border-radius: 8px; }
+
+.ship-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 9px;
+  margin: 1px 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-2);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background .13s, border-color .13s, color .13s;
+}
+.ship-item:hover { background: var(--panel); color: var(--text); }
+.ship-item.on {
+  background: linear-gradient(100deg, rgba(87, 200, 255, .12), rgba(87, 200, 255, .03));
+  border-color: rgba(87, 200, 255, .3);
+  color: var(--text);
+}
+
+.ship-name {
+  display: block;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 550;
+  letter-spacing: -.2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ship-chips {
+  display: flex;
+  gap: 8px;
+  margin-top: 3px;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+.ship-chips .c-a { color: var(--green); }
+.ship-chips .c-r { color: var(--red); }
+.ship-chips .c-m { color: var(--amber); }
+
+.ship-empty { padding: 14px 10px; font-size: 12px; color: var(--muted); }
+
+/* ------------------------------------------------ main column */
+.simple-main {
+  min-width: 0;
+  padding: 26px 28px 72px;
+}
+
+.simple-hero { margin-bottom: 18px; }
+.simple-hero .pv-kicker { margin-bottom: 6px; }
+.simple-title, #simpleTitle { font-size: 24px; }
+#simpleTitle .new { font-family: var(--mono); }
+#simpleTitle .old { color: var(--muted); font-family: var(--mono); font-size: 18px; }
+#simpleTitle .sep { color: var(--muted); font-weight: 300; margin: 0 10px; }
+.simple-sub { margin: 7px 0 0; font-size: 12.5px; color: var(--muted); }
+
+.simple-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  margin-bottom: 14px;
+}
+.simple-bar .channel-switch {
+  width: auto;
+  min-width: 220px;
+  margin: 0;
+}
+.simple-bar .channel-switch button { padding: 6px 12px; }
+
+.period-pick {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.period-pick select {
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  max-width: 220px;
+}
+.period-pick select:focus { border-color: rgba(87, 200, 255, .5); }
+
+.simple-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.schip {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.schip .k { font-size: 11.5px; color: var(--muted); }
+.schip b { font-size: 14px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.schip.a b { color: var(--green); }
+.schip.r b { color: var(--red); }
+.schip.m b { color: var(--amber); }
+.schip.f b { color: var(--accent); }
+
+.simple-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.simple-toolbar .search { flex: 1 1 260px; }
+
+.simple-main .result-meta {
+  justify-content: flex-start;
+  gap: 10px;
+}
+#simpleList { scroll-margin-top: calc(var(--topbar-h, 71px) + 14px); }
+.simple-scope {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(87, 200, 255, .35);
+  background: rgba(87, 200, 255, .1);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.simple-more {
+  display: flex;
+  justify-content: center;
+  padding: 18px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.fields-loading { padding: 10px 14px; font-size: 12px; color: var(--muted); }
+.simple-more .btn { padding: 8px 20px; }
+.simple-note { color: var(--muted); }
+
+.simple .footer {
+  max-width: 1440px;
+  padding-left: 28px;
+  padding-right: 28px;
+}
+
+@media (max-width: 980px) {
+  .simple-layout { grid-template-columns: 1fr; }
+  .simple-side {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .side-head { padding: 14px 16px 8px; }
+  .side-search { padding: 0 12px 10px; }
+  .side-list {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 12px 12px;
+  }
+  .ship-item { flex: 0 0 auto; width: 190px; margin: 0; }
+  .simple-main { padding: 20px 16px 60px; }
+  .simple-bar .channel-switch { min-width: 0; flex: 1 1 auto; }
+  .period-pick { flex: 1 1 auto; justify-content: space-between; }
+  .simple .footer { padding-left: 16px; padding-right: 16px; }
+}
