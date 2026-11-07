@@ -92,7 +92,7 @@ Hakusan_BB.numConsumables       -> PJSB569_Hakusan
 
 | 类型 | 键名 | 使用的 IDS |
 | --- | --- | --- |
-| `Ship` | `PBSB521_Beatty` | `IDS_PBSB521`（缺失时回退 `IDS_PBSB521_FULL`） |
+| `Ship` | `PBSB521_Beatty` | `IDS_PBSB521_FULL`（完整舰名，缺失时回退 `IDS_PBSB521`） |
 | 其他 | `PBPA311_508MM_HE_BEATTY` | `IDS_PBPA311_508MM_HE_BEATTY`（缺失时回退 `…_FULL`） |
 | 带前缀 | `PCY010_RegenCrewPremium` | `IDS_DOCK_CONSUME_TITLE_PCY010_REGENCREWPREMIUM` |
 

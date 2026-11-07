@@ -10,8 +10,8 @@ strings used by the client, e.g.::
 GameParams entry keys are what the change browser displays, so the IDS is
 derived from the key:
 
-* ``Ship`` entries use the index (``PBSB521_Beatty`` -> ``IDS_PBSB521``),
-  falling back to ``IDS_<index>_FULL``;
+* ``Ship`` entries use the index (``PBSB521_Beatty`` -> ``IDS_PBSB521_FULL``),
+  falling back to ``IDS_PBSB521``;
 * every other type uses its own key (``IDS_<NAME>``), falling back to
   ``IDS_<NAME>_FULL``;
 * when neither exists, IDS keys *ending* with ``_<NAME>`` are considered
@@ -100,7 +100,8 @@ def ids_candidates(name, entry_type):
     """IDS keys that may hold the display name of a GameParams entry."""
     index = name.split("_", 1)[0].upper()
     if entry_type == "Ship":
-        return ("IDS_" + index, "IDS_" + index + "_FULL")
+        # FULL 是舰船的完整名（含军衔/前缀），优先使用；缺失时退回短名
+        return ("IDS_" + index + "_FULL", "IDS_" + index)
     # non-ship entries carry their own key; never fall back to the index,
     # which may belong to an unrelated entry (e.g. a ship with the same index)
     key = "IDS_" + name.upper()
