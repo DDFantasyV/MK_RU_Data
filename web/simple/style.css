@@ -217,6 +217,24 @@
   font-size: 11px;
 }
 
+/* 未归属配件按字段键回填到战舰后，在条目行显示归属（多艘时 +N） */
+.ematch {
+  display: inline-flex;
+  align-items: center;
+  max-width: 190px;
+  padding: 1px 7px;
+  border-radius: 5px;
+  border: 1px solid rgba(87, 200, 255, .28);
+  background: rgba(87, 200, 255, .08);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: none;
+}
+
 .simple-more {
   display: flex;
   justify-content: center;
@@ -252,6 +270,7 @@
     padding: 0 12px 12px;
   }
   .ship-item { flex: 0 0 auto; width: 190px; margin: 0; }
+  .ematch { max-width: 120px; }
   .simple-main { padding: 20px 16px 60px; }
   .simple-bar .channel-switch { min-width: 0; flex: 1 1 auto; }
   .period-pick { flex: 1 1 auto; justify-content: space-between; }

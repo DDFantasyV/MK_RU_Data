@@ -42,10 +42,12 @@ web/
 │   └── README.md             词条维护说明
 ├── data/
 │   ├── index.json            期次索引（含每期统计）
+│   ├── names.json            GameParams 键名 → 中文名（简洁版使用）
 │   └── periods/<id>.json     每期的差异数据，按需加载
 └── tools/                    本地脚本（不参与页面功能）
     ├── gpdiff.py             GameParams 解码 / 归一化 / 差异 / 折叠
     ├── build.py              期次配对 + 生成 data/
+    ├── gen_names.py          从 PT/latest/global.mo 生成 data/names.json
     ├── reindex.py            仅用已有 periods/*.json 重建 index.json
     ├── i18n_check.py         校验三种语言的词条与源码引用
     └── gen_simple_fields.py  生成简洁版字段显示清单 field-tree.conf
@@ -61,7 +63,7 @@ web/
 | 字段差异 | 按路径折叠的树，可逐层展开 | 与专业版相同的折叠树（共用 `assets/fields.js`） |
 | 其他 | 顶部汇总卡、类型标签云、展开当前页 | 四个计数、搜索、变更类型筛选、战舰搜索 |
 
-简洁版只收录**战舰本体与配件**：`Ship`、`Unit`、`Component`、`Gun`、`Projectile`、`Aircraft`、`Radar`、`Director`、`Finder`、`Catapult`、`Modernization`、`Ability`，以及挂在某艘战舰下的 `Other`（RageMode 等舰船机制）。涂装、旗帜、贴花（`Exterior`）、`Crew`、`Achievement`、`Collection`、`Campaign`、`DogTag`、`Building`、`BattleScript` 等独立内容不显示；无法归属到具体战舰的配件会收进左侧的“未归属配件”。规则写在 `simple/app.js` 顶部的 `SHIP_TYPES` / `isShipRelated()`。
+简洁版只收录**战舰本体与配件**：`Ship`、`Unit`、`Component`、`Gun`、`Projectile`、`Aircraft`、`Radar`、`Director`、`Finder`、`Catapult`、`Modernization`、`Ability`，以及挂在某艘战舰下的 `Other`（RageMode 等舰船机制）。涂装、旗帜、贴花（`Exterior`）、`Crew`、`Achievement`、`Collection`、`Campaign`、`DogTag`、`Building`、`BattleScript` 等独立内容不显示；没有唯一归属的配件先收进左侧的“未归属配件”，再按字段路径里的舰船键回填到本期变更的战舰。规则写在 `simple/app.js` 顶部的 `SHIP_TYPES` / `isShipRelated()` / `buildShipMatcher()`。
 
 简洁版的字段树由 `simple/field-tree.conf` 控制，采用**继承语义**：`true` 显示该节点及其整棵子树，`false` 隐藏该节点及其整棵子树；没写到的子路径继承父项，顶级路径默认不显示（祖先 `false` 优先于更深层的 `true`）。该文件由 `py -3 web/tools/gen_simple_fields.py` 扫描所有期次的战舰相关条目生成（全量约 14.7 万条路径 / 8 MB；`--max-depth N` 可只输出到第 N 层）；`--reset` 可按默认值重写。生成脚本会按顶部规则把模型/特效等资源路径、内部 `id` 与键名、装甲厚度/系数/分区映射、以及 `AIParams` / `BattleUpgradeInfo` / `formations` 这类非战舰系统置为 `false`（规则全开时约 4.6 万条），`--all-true` 则忽略规则、全部写成 `true`。**当前清单只保留 1 485 条一级路径（`--max-depth 1`），一级 `true` 即代表整棵子树显示；某个条目的差异若全被清单隐藏，该条目不再出现在列表和统计里。** 规则与调整方式见 `simple/README.md`。
 
@@ -122,7 +124,7 @@ GameParams 没有显式的父子字段，条目之间的关系只能从引用里
 * 舰船内嵌的 `A_Artillery`、`A_Hull`、`A_Directors` 等结构里，以字符串值直接引用 gun、projectile、director、radar、aircraft、catapult 等条目；
 * 引用可以继续向下传递（例如炸弹 → 舰载机 → 舰船）。
 
-`gpdiff.ship_owners()` 会沿这些引用做传递闭包，但**不会穿过舰船**，因此 `parentShip` / `childShips` 这类舰船之间的科技树链接不会被误当成归属。只有能唯一落到一艘舰船的条目才记录归属；被多艘舰船共用的模块、迷彩、消耗品不强行挂到某一艘船上。
+`gpdiff.ship_owners()` 会沿这些引用做传递闭包，但**不会穿过舰船**，因此 `parentShip` / `childShips` 这类舰船之间的科技树链接不会被误当成归属。只有能唯一落到一艘舰船的条目才记录归属；被多艘舰船共用的模块、迷彩、消耗品不强行挂到某一艘船上。**简洁版**会在此基础上，把这批没有 `p` 的未归属配件按字段路径第一段的舰船键回填到本期变更的战舰（可命中多艘，规则见 `simple/README.md` 的“未归属配件按字段键回填”）；专业版仍只显示构建时的唯一 `p`。
 
 构建时有归属的条目会多一个 `p` 字段（主词条名），页面显示为：
 
@@ -158,10 +160,11 @@ python web/tools/build.py                   # 全部系列（含 12.x / 13.x）
 python web/tools/build.py --from-major 25 --plan   # 只打印配对关系，不解码
 ```
 
-构建完成后同步简洁版的字段清单（`mkunpack.bat` 已包含这一步；单独重建数据时需要手动补跑，保留已有的 `false`，新增路径默认 `true`）：
+构建完成后同步简洁版的数据（`mkunpack.bat` 已包含这两步；单独重建数据时需要手动补跑）：
 
 ```powershell
-py -3 web/tools/gen_simple_fields.py
+py -3 web/tools/gen_names.py          # 重新生成 data/names.json（简洁版词条中文名）
+py -3 web/tools/gen_simple_fields.py  # 字段清单，保留已有的 false，新增路径默认 true
 ```
 
 提交信息取自 `workspace/cn` 下最新的 PT 目录名（形如 `26.12pt1`），所以最终是 `update to 26.12pt1` —— 正好匹配 `release.yml` 里的 `([0-9]+\.[0-9]+)pt1$`，出包和部署会一起触发。

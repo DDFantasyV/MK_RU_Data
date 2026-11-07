@@ -20,6 +20,174 @@ const SHIP_TYPES = new Set([
   'Radar', 'Director', 'Finder', 'Catapult', 'Modernization', 'Ability',
 ]);
 
+/* ---------------------------------------------------------------------------
+ * 未归属配件的按名归舰
+ *
+ * 构建数据时只有“唯一引用到一艘战舰”的条目才有 p；被多艘舰共用、或引用
+ * 链里找不到唯一舰的配件会落到“未归属配件”。有些全局配件（Ability /
+ * Modernization）本身没有归属，但字段路径的第一段就是舰船键，例如：
+ *
+ *   USSR_CA_MOONSUND.reloadTime      -> PRSC540_Moonsund_1965
+ *   IT_CA_ISONZO.workTime           -> PISC509_Isonzo
+ *   UK_DD_WATERLOO.numConsumables   -> PBSD511_Waterloo
+ *   Hakusan_BB.numConsumables       -> PJSB569_Hakusan
+ *
+ * 这里只拿这类字段键去和本期变更的 Ship 名字匹配；条目名本身不参与，
+ * 所以匹配不到具体舰的条目仍留在“未归属配件”。
+ * ------------------------------------------------------------------------- */
+
+/* 不作为“舰名实词”的通用词：舰种、国家/等级代号、活动/涂装修饰、连接词等。 */
+const NAME_STOP = new Set([
+  'black', 'white', 'colorful', 'azur', 'arp', 'hsf', 'smf', 'tst',
+  'stock', 'test', 'subtest', 'bot', 'event', 'space', 'premium', 'gold',
+  'supertest', 'challenge', 'ranked', 'bumblebee', 'camo', 'mut', 'legacy',
+  'special', 'sanzang', 'arpeggio', 'hound', 'duck', 'boss', 'ny', 'new', 'year',
+  'battleship', 'cruiser', 'destroyer', 'sub', 'type', 'class', 'top',
+  'one', 'two', 'three', 'four', 'five', 'of', 'the', 'and', 'for', 'in',
+  'on', 'a', 'an', 'le', 'la', 'les', 'des', 'du', 'de', 'von', 'van',
+  'der', 'die', 'das', 'el', 'los', 'las', 'san', 'saint', 'st', 'ste',
+  'admiral', 'duke', 'duca', 'general', 'marshal', 'pr',
+  /* 字段路径里的通用键名 */
+  'ships', 'excludes', 'modifiers', 'default', 'rarity', 'index', 'name',
+  'typeinfo', 'canbuy', 'costcr',
+  /* 国家 / 舰种 / 等级代号 */
+  'ussr', 'usa', 'us', 'uk', 'it', 'de', 'fr', 'jp', 'jap', 'ger',
+  'cv', 'bb', 'ca', 'dd', 'cl', 'ss', 'pam', 'pa', 'lvl',
+]);
+
+/* 战舰名末尾的修饰词：年份、活动代号、测试/涂装/联动后缀。 */
+const NAME_TAIL = new Set([
+  'stock', 'test', 'subtest', 'tst', 'bot', 'event', 'space', 'pa', 'pr',
+  'vl', 'smf', 'azur', 'arp', 'hsf', 'black', 'white', 'colorful', 'gold',
+  'premium', 'supertest', 'challenge', 'ranked', 'bumblebee', 'camo', 'ny',
+  'sanzang', 'arpeggio', 'hound', 'boss',
+]);
+
+/* H2017 / H2019 / H2020 / FA2023 这类活动家族代号。 */
+const EVENT_CODE = /^(?:h|fa)20\d\d$/;
+
+function nameTokens(name) {
+  return String(name)
+    .replace(/^p[a-z]{2,4}\d+_/i, '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+function isStrongNameToken(token) {
+  return token.length >= 3 &&
+    !/^\d+$/.test(token) &&
+    !NAME_STOP.has(token) &&
+    !EVENT_CODE.test(token);
+}
+
+/** 战舰名去掉尾部修饰后剩下的“名字词”。全是被忽略的通用词时返回空。 */
+function shipNameTokens(name) {
+  const tokens = nameTokens(name);
+  while (tokens.length) {
+    const last = tokens[tokens.length - 1];
+    if (NAME_TAIL.has(last) || /^\d+$/.test(last) ||
+        /^(?:test|tst|subtest)\d*$/.test(last) || EVENT_CODE.test(last)) {
+      tokens.pop();
+    } else {
+      break;
+    }
+  }
+  while (tokens.length && !isStrongNameToken(tokens[tokens.length - 1])) {
+    if (!tokens.slice(0, -1).some(isStrongNameToken)) return [];
+    tokens.pop();
+  }
+  return tokens;
+}
+
+/**
+ * 为一个期次建立匹配器。phrase(字段键) 先找最长的舰名片段；
+ * family(字段键) 再用活动代号兜底。
+ */
+function buildShipMatcher(entries) {
+  const phrases = new Map();   // "moonsund" / "graf_spee" -> Set(舰名)
+  const families = new Map();  // "h2020" -> Set(舰名)
+  let maxLen = 0;
+
+  for (const entry of entries) {
+    if (entry.t !== 'Ship') continue;
+    const raw = nameTokens(entry.n);
+    for (const token of raw) {
+      if (!EVENT_CODE.test(token)) continue;
+      let set = families.get(token);
+      if (!set) families.set(token, (set = new Set()));
+      set.add(entry.n);
+    }
+    const tokens = shipNameTokens(entry.n);
+    for (let i = 0; i < tokens.length; i++) {
+      const phrase = tokens.slice(i);
+      if (!phrase.some(isStrongNameToken)) continue;
+      const key = phrase.join('_');
+      let set = phrases.get(key);
+      if (!set) phrases.set(key, (set = new Set()));
+      set.add(entry.n);
+      if (phrase.length > maxLen) maxLen = phrase.length;
+    }
+  }
+
+  return {
+    /** 字段键里最长的舰名片段；没有就返回空数组。 */
+    phrase(key) {
+      const tokens = nameTokens(key);
+      for (let len = Math.min(tokens.length, maxLen); len >= 1; len--) {
+        const hits = new Set();
+        for (let i = 0; i + len <= tokens.length; i++) {
+          const ships = phrases.get(tokens.slice(i, i + len).join('_'));
+          if (!ships) continue;
+          for (const ship of ships) hits.add(ship);
+        }
+        if (hits.size) return [...hits];
+      }
+      return [];
+    },
+
+    /** 字段键里的活动家族代号。 */
+    family(key) {
+      const hits = new Set();
+      for (const token of nameTokens(key)) {
+        const ships = families.get(token);
+        if (!ships) continue;
+        for (const ship of ships) hits.add(ship);
+      }
+      return [...hits];
+    },
+  };
+}
+
+/** 条目最终归属的战舰；Ship 本体归自己，已有 p 的沿用 p。 */
+function shipKeys(entry) {
+  if (entry.__ships) return entry.__ships;
+  let keys = [];
+  if (entry.t === 'Ship') {
+    keys = [entry.n];
+  } else if (entry.p) {
+    keys = [entry.p];
+  } else if (state.shipMatcher && entry.f) {
+    const specific = new Set();
+    const families = new Set();
+    const seen = new Set();
+    for (const row of entry.f) {
+      const key = String(row[0]).split('.')[0];
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      const hits = state.shipMatcher.phrase(key);
+      if (hits.length) {
+        for (const ship of hits) specific.add(ship);
+      } else {
+        for (const ship of state.shipMatcher.family(key)) families.add(ship);
+      }
+    }
+    keys = specific.size ? [...specific] : [...families];
+  }
+  entry.__ships = keys;
+  return keys;
+}
+
 const t = (msgid, vars) => MK_i18n.t(msgid, vars);
 const tn = (msgid, n, vars) => MK_i18n.tn(msgid, n, vars);
 const num = (n) => MK_i18n.num(n);
@@ -35,8 +203,10 @@ const state = {
   q: '',
   ship: '',
   shipQuery: '',
+  shipMatcher: null,
   fieldFilter: null,
   fieldConfigFailed: false,
+  names: {},
   expanded: new Set(),
   limit: PAGE,
   loading: false,
@@ -50,6 +220,13 @@ const state = {
 };
 
 const el = (id) => document.getElementById(id);
+
+/* ------------------------------------------------------------- 词条中文名 */
+/* data/names.json 把 GameParams 键名映射到 global.mo 里的中文名；
+ * 没有译名时（例如尚未本地化的新条目）继续显示原始键名。 */
+function cn(name) {
+  return (state.names && state.names[name]) || name;
+}
 
 /* ------------------------------------------------------------- helpers */
 function esc(value) {
@@ -107,7 +284,9 @@ function channelPeriods() {
 
 function haystack(entry) {
   if (entry.__hay) return entry.__hay;
-  let s = (entry.p ? entry.p.toLowerCase() + ' >> ' : '') + entry.n.toLowerCase() + ' ' + entry.t.toLowerCase();
+  const ships = shipKeys(entry);
+  let s = (ships.length ? ships.join(' ') + ' ' + ships.map(cn).join(' ') + ' >> ' : '') +
+    entry.n.toLowerCase() + ' ' + cn(entry.n).toLowerCase() + ' ' + entry.t.toLowerCase();
   if (entry.f) {
     for (const row of entry.f) {
       s += ' ' + row[0].toLowerCase() + ' ' + String(row[1]).toLowerCase() + ' ' + String(row[2]).toLowerCase();
@@ -128,11 +307,6 @@ function fweight(entry) {
 function isShipRelated(entry) {
   if (SHIP_TYPES.has(entry.t)) return true;
   return entry.t === 'Other' && !!entry.p;
-}
-
-function shipOf(entry) {
-  if (entry.t === 'Ship') return entry.n;
-  return entry.p || null;
 }
 
 /**
@@ -159,9 +333,9 @@ function scopedEntries() {
   const rows = shipRelated();
   if (!state.ship) return rows;
   return rows.filter((entry) => {
-    const key = shipOf(entry);
-    if (state.ship === UNATTACHED) return !key;
-    return key === state.ship;
+    const keys = shipKeys(entry);
+    if (state.ship === UNATTACHED) return keys.length === 0;
+    return keys.includes(state.ship);
   });
 }
 
@@ -172,20 +346,22 @@ function groupShips() {
   for (const entry of shipRelated()) {
     total[entry.k] = (total[entry.k] || 0) + 1;
     total.entries += 1;
-    const key = shipOf(entry);
-    let row;
-    if (!key) {
+    const keys = shipKeys(entry);
+    if (!keys.length) {
       if (!unattached) unattached = { kinds: { a: 0, r: 0, m: 0 }, entries: 0 };
-      row = unattached;
-    } else {
-      row = ships.get(key);
+      unattached.kinds[entry.k] = (unattached.kinds[entry.k] || 0) + 1;
+      unattached.entries += 1;
+      continue;
+    }
+    for (const key of keys) {
+      let row = ships.get(key);
       if (!row) {
         row = { name: key, kinds: { a: 0, r: 0, m: 0 }, entries: 0 };
         ships.set(key, row);
       }
+      row.kinds[entry.k] = (row.kinds[entry.k] || 0) + 1;
+      row.entries += 1;
     }
-    row.kinds[entry.k] = (row.kinds[entry.k] || 0) + 1;
-    row.entries += 1;
   }
   const list = [...ships.values()].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   return { ships: list, unattached, total };
@@ -201,7 +377,7 @@ function chipsHtml(kinds) {
 
 function shipRowHtml(value, label, kinds, active) {
   const chips = chipsHtml(kinds);
-  return `<button class="ship-item${active ? ' on' : ''}" type="button" data-ship="${esc(value)}" title="${esc(label)}">
+  return `<button class="ship-item${active ? ' on' : ''}" type="button" data-ship="${esc(value)}" title="${esc(value || label)}">
     <span class="ship-name">${esc(label)}</span>
     ${chips ? `<span class="ship-chips">${chips}</span>` : ''}
   </button>`;
@@ -218,9 +394,11 @@ function renderShips() {
   }
 
   const query = state.shipQuery.trim().toLowerCase();
-  const visible = query ? ships.filter((s) => s.name.toLowerCase().includes(query)) : ships;
+  const visible = query
+    ? ships.filter((s) => s.name.toLowerCase().includes(query) || cn(s.name).toLowerCase().includes(query))
+    : ships;
   const parts = [shipRowHtml('', t('全部战舰'), total, !state.ship)];
-  for (const ship of visible) parts.push(shipRowHtml(ship.name, ship.name, ship.kinds, state.ship === ship.name));
+  for (const ship of visible) parts.push(shipRowHtml(ship.name, cn(ship.name), ship.kinds, state.ship === ship.name));
   if (!query && unattached) {
     parts.push(shipRowHtml(UNATTACHED, t('未归属配件'), unattached.kinds, state.ship === UNATTACHED));
   }
@@ -311,10 +489,12 @@ function summaryHtml(entry) {
     nation: t('国家'),
     name: t('名称'),
   };
-  if (entry.p) parts.push(`<span>${esc(t('主词条'))} <b>${esc(entry.p)}</b></span>`);
+  if (entry.p) parts.push(`<span>${esc(t('主词条'))} <b>${esc(cn(entry.p))}</b></span>`);
   for (const [k, v] of Object.entries(entry.s)) {
     if (v === null || v === '') continue;
-    parts.push(`<span>${esc(map[k] || k)} <b>${esc(fmtVal(v))}</b></span>`);
+    const text = k === 'name' && typeof v === 'string' ? cn(v) : fmtVal(v);
+    const title = k === 'name' && typeof v === 'string' && text !== v ? ` title="${esc(v)}"` : '';
+    parts.push(`<span>${esc(map[k] || k)} <b${title}>${esc(text)}</b></span>`);
   }
   if (!parts.length) return '';
   return `<div class="summary-row">${parts.join('')}</div>`;
@@ -331,14 +511,26 @@ function entryHtml(entry) {
   const open = state.expanded.has(entry.n);
   const weight = fweight(entry);
   const count = entry.f ? `<span class="ecount">${esc(tn('{n} 项', weight, { n: compact(weight) }))}</span>` : '';
+  const matched = !entry.p && entry.t !== 'Ship' ? shipKeys(entry) : [];
+  const shownMatches = matched.length && state.ship && state.ship !== UNATTACHED && matched.includes(state.ship)
+    ? [state.ship, ...matched.filter((name) => name !== state.ship)]
+    : matched;
+  const matchBadge = shownMatches.length
+    ? `<span class="ematch" title="${esc(shownMatches.join(' · '))}">→ ${esc(cn(shownMatches[0]))}${
+      shownMatches.length > 1 ? ` +${num(shownMatches.length - 1)}` : ''
+    }</span>`
+    : '';
   const name = entry.p
-    ? `<span class="eparent">${esc(entry.p)}</span><span class="esep">&gt;&gt;</span>${esc(entry.n)}`
-    : esc(entry.n);
-  const fullName = entry.p ? entry.p + ' >> ' + entry.n : entry.n;
-  return `<div class="entry${open ? ' open' : ''}${entry.p ? ' sub' : ''}" data-name="${esc(entry.n)}">
+    ? `<span class="eparent">${esc(cn(entry.p))}</span><span class="esep">&gt;&gt;</span>${esc(cn(entry.n))}`
+    : esc(cn(entry.n));
+  const fullName = entry.p
+    ? entry.p + ' >> ' + entry.n
+    : shownMatches.length ? shownMatches.join(' / ') + ' >> ' + entry.n : entry.n;
+  return `<div class="entry${open ? ' open' : ''}${entry.p || matched.length ? ' sub' : ''}" data-name="${esc(entry.n)}">
     <button class="entry-head" type="button" aria-expanded="${open ? 'true' : 'false'}">
       <span class="kind kind-${entry.k}">${esc(kindLabel(entry.k))}</span>
       <span class="ename" title="${esc(fullName)}">${name}</span>
+      ${matchBadge}
       <span class="etype">${esc(entry.t)}</span>
       ${count}
       <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>
@@ -358,7 +550,7 @@ function filtered() {
 }
 
 function scopeLabel() {
-  return state.ship === UNATTACHED ? t('未归属配件') : state.ship;
+  return state.ship === UNATTACHED ? t('未归属配件') : cn(state.ship);
 }
 
 function entryOf(node) {
@@ -415,6 +607,26 @@ function ensureFieldConfig() {
     return state.fieldFilter;
   })();
   return fieldConfigPromise;
+}
+
+let namesPromise = null;
+
+/** 载入 data/names.json（GameParams 键名 -> global.mo 中文名），失败时退回原始键名。 */
+function ensureNames() {
+  if (namesPromise) return namesPromise;
+  namesPromise = (async () => {
+    try {
+      const res = await fetch(BASE + 'data/names.json', { cache: 'no-cache' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const blob = await res.json();
+      if (blob && blob.names && typeof blob.names === 'object') state.names = blob.names;
+    } catch (err) {
+      console.warn('[simple] 无法载入 names.json，词条名保持 GameParams 键名：' + err.message);
+      state.names = {};
+    }
+    return state.names;
+  })();
+  return namesPromise;
 }
 
 function renderList() {
@@ -513,6 +725,7 @@ async function showPeriod(id) {
   try {
     const data = await loadPeriod(id);
     state.period = data;
+    state.shipMatcher = buildShipMatcher(data.entries || []);
     state.kind = 'all';
     state.q = '';
     state.ship = '';
@@ -681,8 +894,9 @@ async function boot() {
   document.addEventListener('mk:localechange', onLocaleChange);
   paintEmpty();
 
-  // 字段清单与数据并行加载：条目是否“全部差异被隐藏”要先知道清单，列表渲染前等它。
+  // 字段清单、中文名与数据并行加载：列表渲染前要先拿到前两者。
   const fieldConfigReady = ensureFieldConfig();
+  const namesReady = ensureNames();
 
   try {
     const res = await fetch(BASE + 'data/index.json');
@@ -705,7 +919,7 @@ async function boot() {
   renderGenerated();
   bindEvents();
 
-  await fieldConfigReady;
+  await Promise.all([fieldConfigReady, namesReady]);
 
   const first = channelPeriods()[0];
   const target = wanted ? wanted.id : (first && first.id);

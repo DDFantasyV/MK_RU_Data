@@ -142,6 +142,13 @@ if errorlevel 1 (
     goto :finish
 )
 
+"%PY_EXE%" -u "web\tools\gen_names.py"
+if errorlevel 1 (
+    echo.
+    echo [ERROR] 简洁版词条中文名生成失败
+    goto :finish
+)
+
 "%PY_EXE%" -u "web\tools\gen_simple_fields.py"
 if errorlevel 1 (
     echo.

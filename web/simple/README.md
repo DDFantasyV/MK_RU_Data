@@ -11,7 +11,7 @@ web/
 │   ├── chrome.js       专业版 / 简洁版切换 + 语言切换 + 顶栏高度
 │   └── fields.js       两版共用的字段差异树（按路径折叠）
 ├── i18n/               三语词条（msgid = 简体中文原文）
-├── tools/              生成脚本（gen_simple_fields.py 等）
+├── tools/              生成脚本（gen_names.py、gen_simple_fields.py 等）
 └── simple/             简洁版（本目录）
     ├── index.html      入口（data-edition="simple"）
     ├── style.css       仅在共用样式之上覆盖布局（左侧导航 + 窄正文）
@@ -24,10 +24,11 @@ web/
 
 - 同样的 `data/index.json` 与 `data/periods/*.json`，不复制任何数据；
 - **只显示战舰及其配件**的条目（规则见下），涂装 / 旗帜 / 贴花等独立内容不出现；
+- 条目名与左侧战舰名显示 `global.mo` 里的中文名（`data/names.json`）；没有对应 IDS 的条目保持原始 GameParams 键名；
 - 左侧导航：
   - 顶部是「全部战舰」，带全部条目的 `+新增 −删除 ~修改` 计数；
   - 下面是本期有变更的战舰，按名称排序，每艘显示自己的 `+ / − / ~` 计数；
-  - 没有归属到具体战舰的配件收在「未归属配件」；
+  - 没有唯一归属的配件先收在「未归属配件」，再按字段键回填到本期变更的战舰；
   - 「搜索战舰…」只过滤这个列表；
   - 点击某艘战舰，右侧清单只显示该舰及其配件，四个计数同步变成该舰的范围；
 - 页面上方仍然选择 PT / Live 与期次，下面是四个计数（新增 / 删除 / 修改 / 字段变化）；
@@ -59,7 +60,57 @@ web/
 
 > `Finder`（测距仪）是战舰配件，已在收录表中；以后新增、未列出的类型默认不收录。
 
-无法落到具体战舰的配件（例如全局 `Modernization`、`Ability`，或 `Unit` 没有 `p`）统一归入「未归属配件」，不会被丢掉。
+无法落到具体战舰的配件（例如全局 `Modernization`、`Ability`，或 `Unit` 没有 `p`）统一归入「未归属配件」；页面会再按下面的字段键规则尝试回填，仍未命中的才留在那里。
+
+### 未归属配件按字段键回填
+
+有些全局配件本身没有 `p`，但字段路径的第一段就是舰船键。例如：
+
+```text
+USSR_CA_MOONSUND.reloadTime      -> PRSC540_Moonsund_1965
+IT_CA_ISONZO.workTime           -> PISC509_Isonzo
+UK_DD_WATERLOO.numConsumables   -> PBSD511_Waterloo
+Hakusan_BB.numConsumables       -> PJSB569_Hakusan
+```
+
+简洁版在渲染前用这段字段键和本期有变更的 `Ship` 名字匹配（`app.js` 的 `buildShipMatcher()` / `shipKeys()`）：
+
+- 战舰名去掉前缀编号和尾部修饰（年份、`TST`、`Black`、`H2019` 等），取从某个词到末尾的连续片段；
+  字段键里出现同样的连续词片段就归给该舰，优先最长片段。
+- 通用国家/舰种/等级词（`USSR`、`CA`、`BB`、`Lvl` 等）和路径属性名（`ships`、`default`、`typeinfo` 等）不参与匹配。
+- 字段键命中多艘战舰时分别归入每一艘；活动代号（`H2017`…`H2020`、`FA2023`）只作为家族标签，
+  在没有任何具体舰名命中时才使用。
+- 已有 `p` 的条目、`Ship` 本体、以及没有字段路径的条目不参与重新匹配。
+- 同一配件在「全部战舰」只计一次，在各自战舰下各计一次；条目行显示 `→ 舰名`，命中多艘时显示 `+N`。
+- 条目名本身**不**参与匹配：例如 `PCY010_RegenCrewPremium` 只因为字段里有 `USSR_CA_MOONSUND` 才归到 Moonsund；
+  找不到具体舰船键的配件继续留在「未归属配件」。
+
+## 词条中文名（names.json）
+
+页面显示的条目名来自 `web/data/names.json`，由 `web/tools/gen_names.py` 从
+`PT/latest/global.mo`（gettext MO）生成。GameParams 键名到 IDS 的对应规则：
+
+| 类型 | 键名 | 使用的 IDS |
+| --- | --- | --- |
+| `Ship` | `PBSB521_Beatty` | `IDS_PBSB521`（缺失时回退 `IDS_PBSB521_FULL`） |
+| 其他 | `PBPA311_508MM_HE_BEATTY` | `IDS_PBPA311_508MM_HE_BEATTY`（缺失时回退 `…_FULL`） |
+| 带前缀 | `PCY010_RegenCrewPremium` | `IDS_DOCK_CONSUME_TITLE_PCY010_REGENCREWPREMIUM` |
+
+带前缀的 IDS 用**后缀匹配**：只要 MO 的 msgid 以 `_<键名>` 结尾就算命中，不要求整串相等
+（例如消耗品用 `IDS_DOCK_CONSUME_TITLE_…`、升级品用 `IDS_TITLE_…`）。同名下有多个候选时
+优先 `TITLE` 类词条，跳过 `DESCRIPTION` / `DESC` / `TOOLTIP` / `HINT` 等非名称词条。
+
+- 只收录简洁版会显示的条目，文件本身很小（约 0.57 MB）；专业版不受影响。
+- **找不到对应 IDS（或 IDS 值为空 / 未翻译）的条目不会写进文件**，页面继续显示原始键名
+  （例如尚未本地化的 `PBOM001_BeattyRageMode`、`PBSC558_AZUR_Cheshire`）。
+- 原始键名保留在条目行 / 左侧战舰的 `title` 提示里；搜索同时匹配中文名和原始键名。
+- 生成结果是确定性的（键排序、无时间戳），只有 `global.mo` 或数据真的变化时才会改动。
+
+更新数据后重新生成（`mkunpack.bat` 在 `build.py` 之后已自动执行）：
+
+```powershell
+py -3 web/tools/gen_names.py
+```
 
 ## 字段显示清单（field-tree.conf）
 
