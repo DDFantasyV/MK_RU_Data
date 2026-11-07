@@ -26,7 +26,7 @@ OUT = os.path.join(ROOT, "web", "data")
 CACHE = os.path.join(ROOT, ".gpcache")
 CACHE_VERSION = 5
 #: bump when the diff/emit logic changes shape, so every period is rebuilt
-PIPELINE_VERSION = 1
+PIPELINE_VERSION = 5
 MANIFEST = os.path.join(CACHE, "manifest.json")
 MANIFEST_VERSION = 1
 
@@ -252,6 +252,8 @@ def load_side(snapshot):
 # diff
 # --------------------------------------------------------------------------
 MAX_FIELDS_PER_ENTRY = 400
+#: added entries are shown in full so every subtree can be expanded on demand
+MAX_FIELDS_PER_ADDED = 12000
 
 
 def row_weight(row):
@@ -259,6 +261,28 @@ def row_weight(row):
     if len(row) > 3 and row[3] == "grp":
         return row[2]
     return 1
+
+
+def order_key(name, owners):
+    """Group ``parent`` and its components together, parent first."""
+    parent = owners.get(name)
+    return (parent or name, 0 if parent is None else 1, name)
+
+
+def entry_rows(entry):
+    """Full parameter dump for an added entry, in diff-row shape.
+
+    No subtree collapsing here: the page renders these as a collapsible
+    tree, so every group (``A_ATBA``, ``primaryShipTags[0]`` ...) must keep
+    its actual leaves in the JSON.
+    """
+    return [[path, None, value, "add"] for path, value in gpdiff.iter_flat(entry)]
+
+
+def limit_rows(rows, cap=MAX_FIELDS_PER_ENTRY):
+    if len(rows) > cap:
+        return rows[:cap], len(rows) - cap
+    return rows, None
 
 
 def diff_period(period):
@@ -275,32 +299,47 @@ def diff_period(period):
 
     new_data = load_side(new_s) if (modified or added) else {}
     old_data = load_side(old_s) if (modified or removed) else {}
+    new_owners = gpdiff.ship_owners(new_data) if new_data else {}
+    old_owners = gpdiff.ship_owners(old_data) if old_data else {}
+    print(f"    owned {len(new_owners)}/{len(new_data)} new, "
+          f"{len(old_owners)}/{len(old_data)} old")
 
     entries = []
-    for n in sorted(added):
+    for n in sorted(added, key=lambda x: order_key(x, new_owners)):
         e = new_data.get(n)
         if e is None:
             continue
-        entries.append({"n": n, "t": gpdiff.entry_type(e), "k": "a",
-                        "s": gpdiff.entry_summary(e)})
-    for n in sorted(removed):
+        item = {"n": n, "t": gpdiff.entry_type(e), "k": "a",
+                "s": gpdiff.entry_summary(e)}
+        rows, dropped = limit_rows(entry_rows(e), MAX_FIELDS_PER_ADDED)
+        if rows:
+            item["f"] = rows
+        if dropped:
+            item["x"] = dropped
+        if new_owners.get(n):
+            item["p"] = new_owners[n]
+        entries.append(item)
+    for n in sorted(removed, key=lambda x: order_key(x, old_owners)):
         e = old_data.get(n)
         if e is None:
             continue
-        entries.append({"n": n, "t": gpdiff.entry_type(e), "k": "r",
-                        "s": gpdiff.entry_summary(e)})
-    for n in sorted(modified):
+        item = {"n": n, "t": gpdiff.entry_type(e), "k": "r",
+                "s": gpdiff.entry_summary(e)}
+        if old_owners.get(n):
+            item["p"] = old_owners[n]
+        entries.append(item)
+    for n in sorted(modified, key=lambda x: order_key(x, new_owners)):
         e_new, e_old = new_data.get(n), old_data.get(n)
         if e_new is None or e_old is None:
             continue
         rows = gpdiff.diff_entries(e_old, e_new)
         if not rows:
             continue
-        dropped = None
-        if len(rows) > MAX_FIELDS_PER_ENTRY:
-            dropped = len(rows) - MAX_FIELDS_PER_ENTRY
-            rows = rows[:MAX_FIELDS_PER_ENTRY]
+        rows, dropped = limit_rows(rows)
         item = {"n": n, "t": gpdiff.entry_type(e_new), "k": "m", "f": rows}
+        parent = new_owners.get(n) or old_owners.get(n)
+        if parent:
+            item["p"] = parent
         if dropped:
             item["x"] = dropped
         entries.append(item)

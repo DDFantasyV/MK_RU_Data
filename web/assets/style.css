@@ -444,6 +444,9 @@ select.typefilter {
   min-width: 0; flex: 1 1 auto;
 }
 .entry.open .ename { white-space: normal; overflow-wrap: anywhere; }
+.ename .eparent { color: var(--text-2); font-weight: 600; }
+.ename .esep { color: var(--accent); margin: 0 7px; font-weight: 700; }
+.entry.sub { border-left: 2px solid rgba(87, 200, 255, .35); }
 
 .etype {
   font-size: 11px; color: var(--muted);
@@ -473,7 +476,10 @@ select.typefilter {
 .frow:last-child { border-bottom: 0; }
 .frow:hover { background: rgba(87, 200, 255, .04); }
 
-.fpath { color: var(--text-2); overflow-wrap: anywhere; word-break: break-word; }
+.fpath {
+  color: var(--text-2); overflow-wrap: anywhere; word-break: break-word;
+  padding-left: calc(var(--d, 0) * 13px);
+}
 .fpath .seg-ind { color: var(--muted); }
 .fold, .fnew { overflow-wrap: anywhere; word-break: break-word; }
 .fold { color: #9db0c6; }
@@ -498,7 +504,15 @@ select.typefilter {
 
 .frow.grp { background: rgba(255, 194, 71, .035); }
 .frow.grp .fpath { color: var(--amber); }
-.frow.grp .fpath::after { content: " ▾"; opacity: .5; }
+.frow.grp.static { cursor: default; }
+.frow.group { cursor: pointer; user-select: none; }
+.frow.group:hover { background: rgba(87, 200, 255, .07); }
+.frow.group .fpath { display: flex; align-items: center; gap: 5px; }
+.frow.group .fkey { color: var(--text-2); }
+.frow.group .fcount { color: var(--muted); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.fchev { width: 11px; height: 11px; color: var(--muted); flex: none; transition: transform .15s; }
+.frow.group.open .fchev { transform: rotate(90deg); }
+.fchildren[hidden] { display: none; }
 .grpnote {
   color: var(--muted);
   font-style: italic;

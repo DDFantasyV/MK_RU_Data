@@ -234,7 +234,7 @@ function renderPeriodShell(p) {
         <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
         </svg>
-        <input id="searchInput" type="search" placeholder="搜索条目名 / 字段路径 / 数值…" autocomplete="off" spellcheck="false">
+        <input id="searchInput" type="search" placeholder="搜索条目名 / 主词条 / 字段路径 / 数值…" autocomplete="off" spellcheck="false">
         <button class="clear" id="searchClear" hidden title="清空">×</button>
       </div>
       <button class="btn" id="toggleAllBtn" type="button">展开当前页</button>
@@ -263,7 +263,7 @@ function typeChipsHtml(entries) {
 /* ------------------------------------------------------------- entries */
 function haystack(entry) {
   if (entry.__hay) return entry.__hay;
-  let s = entry.n.toLowerCase() + ' ' + entry.t.toLowerCase();
+  let s = (entry.p ? entry.p.toLowerCase() + ' >> ' : '') + entry.n.toLowerCase() + ' ' + entry.t.toLowerCase();
   if (entry.f) {
     for (const row of entry.f) {
       s += ' ' + row[0].toLowerCase() + ' ' + String(row[1]).toLowerCase() + ' ' + String(row[2]).toLowerCase();
@@ -295,37 +295,124 @@ function fweight(entry) {
   return n;
 }
 
-function fieldRowsHtml(entry) {
-  let html = '<div class="fields">';
-  for (const [path, oldV, newV, kind] of entry.f) {
-    if (kind === 'grp') {
-      html += `<div class="frow grp">
-        <span class="fpath">${esc(path)}</span>
-        <span class="fold void">—</span>
-        <span class="farr">→</span>
-        <span class="fnew grpnote">子树内 ${fmtBig(newV)} 处差异</span>
-        <span></span>
-      </div>`;
-      continue;
-    }
-    const cls = kind === 'add' ? ' added' : kind === 'del' ? ' removed' : '';
-    const oldTxt = kind === 'add' ? '—' : esc(fmtVal(oldV));
-    const newTxt = kind === 'del' ? '—' : esc(fmtVal(newV));
-    let delta = '';
-    if (kind === 'chg' && typeof oldV === 'number' && typeof newV === 'number' && oldV !== newV) {
-      const d = Number((newV - oldV).toPrecision(10));
-      if (d !== 0) {
-        delta = `<span class="fdelta ${d > 0 ? 'up' : 'down'}">${d > 0 ? '+' : ''}${fmtNum(d)}</span>`;
-      }
-    }
-    html += `<div class="frow${cls}">
-      <span class="fpath">${esc(path)}</span>
-      <span class="fold ${kind === 'add' ? 'void' : ''}">${oldTxt}</span>
-      <span class="farr">→</span>
-      <span class="fnew ${kind === 'del' ? 'void' : ''}">${newTxt}</span>
-      ${delta || '<span></span>'}
-    </div>`;
+/* ------------------------------------------------------------- field tree */
+const FIELD_CHEV = '<svg class="fchev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>';
+
+/** Split `A_ATBA.HP_BGS_1.ammoList[0]` into path segments. */
+function pathSegments(path) {
+  const out = [];
+  for (const part of path.split('.')) {
+    const m = /^([^\[\]]*)((?:\[\d+\])*)$/.exec(part);
+    if (!m) { out.push(part); continue; }
+    if (m[1]) out.push(m[1]);
+    const idx = m[2].match(/\[\d+\]/g);
+    if (idx) out.push(...idx);
   }
+  return out;
+}
+
+function segCompare(a, b) {
+  const ia = /^\[(\d+)\]$/.exec(a);
+  const ib = /^\[(\d+)\]$/.exec(b);
+  if (ia && ib) return Number(ia[1]) - Number(ib[1]);
+  if (ia) return 1;
+  if (ib) return -1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/** Build (and cache) a collapsible tree from the flat field rows. */
+function buildFieldTree(entry) {
+  if (entry.__tree) return entry.__tree;
+  const root = { key: '', full: '', keys: [], map: new Map(), children: [], row: null, leaves: 0 };
+  const grp = [];
+  for (const row of entry.f) {
+    if (row[3] === 'grp') { grp.push(row); continue; }
+    const segs = pathSegments(row[0]);
+    let node = root;
+    for (const seg of segs) {
+      let child = node.map.get(seg);
+      if (!child) {
+        const full = seg.charAt(0) === '[' ? node.full + seg : (node.full ? node.full + '.' + seg : seg);
+        child = {
+          key: seg, full, keys: node.keys.concat(seg),
+          map: new Map(), children: [], row: null, leaves: 0,
+        };
+        node.map.set(seg, child);
+        node.children.push(child);
+      }
+      node = child;
+    }
+    node.row = row;
+  }
+  const count = (node) => {
+    let n = node.row ? 1 : 0;
+    for (const c of node.children) n += count(c);
+    node.leaves = n;
+    return n;
+  };
+  count(root);
+  const sort = (node) => {
+    node.children.sort((a, b) => segCompare(a.key, b.key));
+    for (const c of node.children) sort(c);
+  };
+  sort(root);
+  entry.__tree = { root, grp };
+  return entry.__tree;
+}
+
+function fieldLeafHtml(node, depth) {
+  const [path, oldV, newV, kind] = node.row;
+  const cls = kind === 'add' ? ' added' : kind === 'del' ? ' removed' : '';
+  const oldTxt = kind === 'add' ? '—' : esc(fmtVal(oldV));
+  const newTxt = kind === 'del' ? '—' : esc(fmtVal(newV));
+  let delta = '';
+  if (kind === 'chg' && typeof oldV === 'number' && typeof newV === 'number' && oldV !== newV) {
+    const d = Number((newV - oldV).toPrecision(10));
+    if (d !== 0) {
+      delta = `<span class="fdelta ${d > 0 ? 'up' : 'down'}">${d > 0 ? '+' : ''}${fmtNum(d)}</span>`;
+    }
+  }
+  return `<div class="frow${cls}" style="--d:${depth}" title="${esc(node.full)}">
+    <span class="fpath">${esc(node.key)}</span>
+    <span class="fold ${kind === 'add' ? 'void' : ''}">${oldTxt}</span>
+    <span class="farr">→</span>
+    <span class="fnew ${kind === 'del' ? 'void' : ''}">${newTxt}</span>
+    ${delta || '<span></span>'}
+  </div>`;
+}
+
+function fieldGroupHtml(node, depth) {
+  return `<div class="frow group" data-fsegs="${esc(JSON.stringify(node.keys))}" style="--d:${depth}" role="button" tabindex="0" aria-expanded="false" title="${esc(node.full)}">
+    <span class="fpath">${FIELD_CHEV}<span class="fkey">${esc(node.key)}</span><span class="fcount">${fmtBig(node.leaves)}</span></span>
+    <span class="fold void">—</span>
+    <span class="farr">→</span>
+    <span class="fnew groupnote">${fmtBig(node.leaves)} 项</span>
+    <span></span>
+  </div>
+  <div class="fchildren" hidden></div>`;
+}
+
+function fieldStaticGrpHtml(row) {
+  return `<div class="frow grp static" title="构建时折叠的子树汇总">
+    <span class="fpath">${esc(row[0])}</span>
+    <span class="fold void">—</span>
+    <span class="farr">→</span>
+    <span class="fnew grpnote">子树内 ${fmtBig(row[2])} 处差异</span>
+    <span></span>
+  </div>`;
+}
+
+function fieldNodeHtml(node, depth) {
+  if (node.children.length) return fieldGroupHtml(node, depth);
+  if (node.row) return fieldLeafHtml(node, depth);
+  return '';
+}
+
+function fieldRowsHtml(entry) {
+  const tree = buildFieldTree(entry);
+  let html = '<div class="fields">';
+  for (const row of tree.grp) html += fieldStaticGrpHtml(row);
+  for (const node of tree.root.children) html += fieldNodeHtml(node, 0);
   html += '</div>';
   if (entry.x) {
     html += `<div class="more-note">另有 ${f1(entry.x)} 处字段差异未显示（超出单条目上限）</div>`;
@@ -333,10 +420,44 @@ function fieldRowsHtml(entry) {
   return html;
 }
 
+function toggleFieldGroup(rowEl) {
+  const box = rowEl.closest('.entry');
+  if (!box) return;
+  const entry = state.period.entries.find((e) => e.n === box.dataset.name);
+  if (!entry) return;
+  const tree = buildFieldTree(entry);
+  let segs;
+  try { segs = JSON.parse(rowEl.dataset.fsegs || '[]'); } catch (err) { return; }
+  let node = tree.root;
+  for (const seg of segs) {
+    node = node.map.get(seg);
+    if (!node) return;
+  }
+  const wrap = rowEl.nextElementSibling;
+  if (!wrap || !wrap.classList.contains('fchildren')) return;
+
+  if (rowEl.classList.contains('open')) {
+    rowEl.classList.remove('open');
+    rowEl.setAttribute('aria-expanded', 'false');
+    wrap.hidden = true;
+    return;
+  }
+  if (!wrap.dataset.loaded) {
+    let inner = '';
+    for (const child of node.children) inner += fieldNodeHtml(child, segs.length);
+    wrap.innerHTML = inner;
+    wrap.dataset.loaded = '1';
+  }
+  wrap.hidden = false;
+  rowEl.classList.add('open');
+  rowEl.setAttribute('aria-expanded', 'true');
+}
+
 function summaryHtml(entry) {
   if (!entry.s) return '';
   const parts = [];
   const map = { index: '编号', level: '等级', species: '舰种', nation: '国家', name: '名称' };
+  if (entry.p) parts.push(`<span>主词条 <b>${esc(entry.p)}</b></span>`);
   for (const [k, v] of Object.entries(entry.s)) {
     if (v === null || v === '') continue;
     parts.push(`<span>${esc(map[k] || k)} <b>${esc(fmtVal(v))}</b></span>`);
@@ -347,13 +468,17 @@ function summaryHtml(entry) {
 
 function renderEntry(entry) {
   const open = state.expanded.has(entry.n);
-  const countTxt = entry.k === 'm'
+  const countTxt = entry.f
     ? `<b>${fmtBig(fweight(entry))}</b> 项`
     : '';
-  return `<div class="entry${open ? ' open' : ''}" data-name="${esc(entry.n)}">
+  const nameHtml = entry.p
+    ? `<span class="eparent">${esc(entry.p)}</span><span class="esep">&gt;&gt;</span>${esc(entry.n)}`
+    : esc(entry.n);
+  const fullName = entry.p ? entry.p + ' >> ' + entry.n : entry.n;
+  return `<div class="entry${open ? ' open' : ''}${entry.p ? ' sub' : ''}" data-name="${esc(entry.n)}">
     <button class="entry-head" type="button" aria-expanded="${open ? 'true' : 'false'}">
       <span class="kind kind-${entry.k}">${KIND_LABEL[entry.k]}</span>
-      <span class="ename">${esc(entry.n)}</span>
+      <span class="ename" title="${esc(fullName)}">${nameHtml}</span>
       <span class="etype">${esc(entry.t)}</span>
       ${countTxt ? `<span class="ecount">${countTxt}</span>` : ''}
       <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg>
@@ -525,6 +650,12 @@ function bindEvents() {
       return;
     }
 
+    const fgroup = ev.target.closest('.frow.group');
+    if (fgroup) {
+      toggleFieldGroup(fgroup);
+      return;
+    }
+
     const head = ev.target.closest('.entry-head');
     if (head) {
       const box = head.closest('.entry');
@@ -585,6 +716,15 @@ function bindEvents() {
     state.page = 0;
     renderEntries();
     input.focus();
+  });
+
+  el('periodView').addEventListener('keydown', (ev) => {
+    const g = ev.target.closest('.frow.group');
+    if (!g) return;
+    if (ev.key === 'Enter' || ev.key === ' ') {
+      ev.preventDefault();
+      toggleFieldGroup(g);
+    }
   });
 
   document.addEventListener('keydown', (ev) => {

@@ -178,6 +178,89 @@ def entry_summary(entry):
     return out
 
 
+# --------------------------------------------------------------------------
+# ownership: which ship does a component belong to?
+# --------------------------------------------------------------------------
+def collect_refs(obj, names, self_name):
+    """Return other entry names referenced by ``obj``.
+
+    GameParams has no explicit parent field: a ship references its modules
+    through ``ShipUpgradeInfo`` *keys* (unit names) and its guns, ammo,
+    directors, radars, aircraft, ... through the embedded ``A_*`` trees.
+    Both mapping keys and string values are inspected.
+    """
+    out = set()
+    stack = [obj]
+    seen = set()
+    while stack:
+        node = stack.pop()
+        if id(node) in seen:
+            continue
+        seen.add(id(node))
+        attrs = _attrs(node)
+        if attrs is not None:
+            node = attrs
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if isinstance(key, str) and key in names and key != self_name:
+                    out.add(key)
+                stack.append(value)
+        elif isinstance(node, (list, tuple, set, frozenset)):
+            stack.extend(node)
+        elif isinstance(node, str):
+            if node in names and node != self_name:
+                out.add(node)
+    return out
+
+
+def build_children(data):
+    """``{entry name: set(referenced entry names)}`` for a whole snapshot."""
+    names = set(data)
+    children = {}
+    for name, entry in data.items():
+        refs = collect_refs(entry, names, name)
+        if refs:
+            children[name] = refs
+    return children
+
+
+def ship_owners(data):
+    """Map component entries to the unique ship that owns them.
+
+    Ownership follows references transitively (bomb -> aircraft -> ship) but
+    never *through* a ship, so ``parentShip`` / ``childShips`` links between
+    ships cannot make one ship the owner of another.  Entries reachable from
+    more than one ship are shared modules/camouflages and are left out: only
+    an unambiguous ``ship >> component`` relation is reported.
+    """
+    types = {name: entry_type(entry) for name, entry in data.items()}
+    children = build_children(data)
+    owners = {}
+    shared = set()
+
+    for name, kind in types.items():
+        if kind != "Ship":
+            continue
+        stack = list(children.get(name, ()))
+        seen = set()
+        while stack:
+            child = stack.pop()
+            if child in seen:
+                continue
+            seen.add(child)
+            if types.get(child) == "Ship":
+                continue
+            if child in owners and owners[child] != name:
+                shared.add(child)
+            else:
+                owners[child] = name
+            stack.extend(children.get(child, ()))
+
+    for name in shared:
+        owners.pop(name, None)
+    return owners
+
+
 L1_COLLAPSE = 200      # a whole top-level subtree with more changed leaves than this
 L2_COLLAPSE = 30       # ...is summarised as one row; so is a second-level subtree
 
