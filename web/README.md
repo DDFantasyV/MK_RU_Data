@@ -68,15 +68,44 @@ python -m http.server 8000
 
 仓库根目录需要存在 `Live/` 与 `PT/` 的拆包结果（由 `mkunpack.bat` 生成）。
 
+**`mkunpack.bat` 现在是全自动的**：拆包 → 增量构建站点数据 → `git add .` → `git commit -m "update to <PT版本号>"` → `git push`，任一步失败就停下来并说明原因。一般不需要手动执行下面的命令；只有单独重建时才用：
+
 ```powershell
 python web/tools/build.py --from-major 25   # 当前站点：25.x 起（含 26.x 与 latest）
+python web/tools/build.py --from-major 25 --force   # 强制全部重建
 python web/tools/build.py                   # 全部系列（含 12.x / 13.x）
 python web/tools/build.py --from-major 25 --plan   # 只打印配对关系，不解码
 ```
 
+提交信息取自 `workspace/cn` 下最新的 PT 目录名（形如 `26.12pt1`），所以最终是 `update to 26.12pt1` —— 正好匹配 `release.yml` 里的 `([0-9]+\.[0-9]+)pt1$`，出包和部署会一起触发。
+
+自动流程的几道闸门：
+
+* **拆包结果只按「输出文件是否存在」判定**：拆完在 `Live\latest`、`PT\latest` 下找不到 `GameParams*.data` 就标记失败。不看 `pfsunpack.exe` 的退出码 —— 不同版本对成功/失败的返回码并不可靠。
+* `copy idx`、`copy global.mo` 失败同样标记失败（这两条是明确的文件复制，退出码可信）。
+* 标记失败时**跳过构建与推送**，避免把半成品写进缓存和线上。
+* 构建失败、`git add/commit/push` 失败、当前目录不是 git 仓库 → 各自给出提示并停止，不会留下半推状态。
+
+> 存在性检查的边界：如果 `pfsunpack` 完全没执行、而 `latest` 里还留着上一次的文件，检查会通过。实践中 `copy idx` 那一步通常先失败并拦住这种情况；真要保险，可以在拆包前先 `del "PT\latest\content\GameParams*.data"`。
+
+`mkunpack.bat` 里查找 Python 的顺序是：`..\.venv\Scripts\python.exe` → `py` 启动器 → `python`；都没找到就只警告并跳过构建与推送，拆包本身不受影响。
+
 `--from-major N` 表示只保留主版本号 ≥ N 的快照，因此 13.x 及更早的版本不会出现在站点里，也不会被解码。
 
-结构摘要缓存在仓库根目录的 `.gpcache/`（不随 `web/` 发布），重建时只有内容变化的快照需要重新解码。
+### 增量构建
+
+`build.py` 默认**只重建真正变化了的期次**，其余直接复用已有 JSON。仓库根目录的 `.gpcache/`（不随 `web/` 发布）里存了两层缓存：
+
+| 文件 | 内容 |
+| --- | --- |
+| `.gpcache/<通道>_<版本>.json` | 该快照每个条目的结构摘要，避免重复解码后重新计算 |
+| `.gpcache/manifest.json` | 每期的**输入指纹**（新旧文件的路径 / 大小 / 修改时间 + 规则 + 管线版本）与统计汇总 |
+
+所以日常更新一个版本时，通常只有 2–4 期需要重算（新的 `latest`、被顶替下来的那个版本号），其余 40 多期在一秒内跳过；而每期的时间几乎都花在解码两个十几 MB 的 `GameParams.data` 上。
+
+* `--force` 忽略清单全部重建；改动 `gpdiff.py` 的遍历或折叠逻辑后，把 `build.py` 里的 `PIPELINE_VERSION` 加 1 效果相同。
+* 删掉 `.gpcache/` 等同于全量重建（会重新计算所有结构摘要，最慢）。
+* 清单只记录本机状态，**不要提交到仓库**（已在 `.gitignore` 中）。
 
 ## 发布到 GitHub Pages
 
@@ -87,7 +116,7 @@ python web/tools/build.py --from-major 25 --plan   # 只打印配对关系，不
 ⚠️ 「Deploy from a branch」只能选 `/ (root)` 或 `/docs`，**选不到 `/web`**。所以这里用 Actions 发布：
 
 1. 仓库 **Settings → Pages → Build and deployment → Source** 选 **GitHub Actions**（只需设置一次）。
-2. 仓库里已有 `.github/workflows/pages.yml`，只在 `web/**` 变化时触发，把 `web/` 整个目录作为 artifact 发布。
+2. 仓库里已有 `.github/workflows/pages.yml`，只在 `web/**` 变化时触发，把 `web/` 整个目录作为 artifact 发布。检出用的是稀疏检出（`sparse-checkout: web` + `filter: blob:none`），不会把 `Live/`、`PT/` 那 3 GB 拆包数据拉下来。
 3. `git push` 到 `main` 后，到 **Actions → Deploy Pages** 看进度；首次部署完成后（约 1–2 分钟）访问上面的地址。
 
 不依赖 Actions 的替代方案：

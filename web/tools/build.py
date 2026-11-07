@@ -22,9 +22,13 @@ import gpdiff  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 OUT = os.path.join(ROOT, "web", "data")
-# keep the digest cache out of web/ so it is never published with the site
+# keep the caches out of web/ so they are never published with the site
 CACHE = os.path.join(ROOT, ".gpcache")
 CACHE_VERSION = 5
+#: bump when the diff/emit logic changes shape, so every period is rebuilt
+PIPELINE_VERSION = 1
+MANIFEST = os.path.join(CACHE, "manifest.json")
+MANIFEST_VERSION = 1
 
 VARIANTS = ["GameParams_py2.data", "GameParams.data", "GameParams_py3.data"]
 
@@ -107,6 +111,7 @@ def collect():
                 "rel": os.path.relpath(path, ROOT),
                 "size": os.path.getsize(path),
                 "version": parse_version(name),
+                "mtime_ns": os.stat(path).st_mtime_ns,
             }
     annotate_latest(snapshots)
     return snapshots
@@ -331,43 +336,106 @@ def diff_period(period):
     return payload
 
 
-def main(major_min=None):
+# --------------------------------------------------------------------------
+# incremental build
+# --------------------------------------------------------------------------
+def period_sig(p):
+    """Fingerprint of everything that decides a period's diff output."""
+    n, o = p["new"], p["old"]
+    return "|".join(str(x) for x in (
+        PIPELINE_VERSION,
+        p["rule"],
+        n["path"], n["size"], n["mtime_ns"],
+        o["path"], o["size"], o["mtime_ns"],
+    ))
+
+
+def load_manifest():
+    try:
+        with open(MANIFEST, "r", encoding="utf-8") as fh:
+            blob = json.load(fh)
+        if blob.get("version") == MANIFEST_VERSION:
+            return blob.get("periods", {})
+    except Exception:
+        pass
+    return {}
+
+
+def save_manifest(periods):
+    os.makedirs(CACHE, exist_ok=True)
+    with open(MANIFEST, "w", encoding="utf-8") as fh:
+        json.dump({"version": MANIFEST_VERSION, "generated": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                   "periods": periods}, fh, ensure_ascii=False, separators=(",", ":"))
+
+
+def make_entry(payload, size):
+    return {
+        "id": payload["id"],
+        "new": payload["new"],
+        "old": payload["old"],
+        "rule": payload["rule"],
+        "counts": payload["counts"],
+        "types": payload["types"],
+        "bytes": size,
+    }
+
+
+def main(major_min=None, force=False):
     os.makedirs(OUT, exist_ok=True)
     period_dir = os.path.join(OUT, "periods")
     os.makedirs(period_dir, exist_ok=True)
-    for stale in os.listdir(period_dir):
-        if stale.endswith(".json"):
-            os.remove(os.path.join(period_dir, stale))
+
     snapshots = collect()
     periods = build_periods(snapshots, major_min) + build_live_periods(snapshots, major_min)
     scope = f"major>={major_min}" if major_min is not None else "all majors"
+    ids = [period_id(p) for p in periods]
+    wanted = set(ids)
     print(f"{len(snapshots)} snapshots, {len(periods)} periods ({scope})")
 
+    # drop outputs that no longer belong to the current scope
+    for stale in os.listdir(period_dir):
+        if stale.endswith(".json") and stale[:-5] not in wanted:
+            os.remove(os.path.join(period_dir, stale))
+            print(f"  removed stale {stale}")
+
+    previous = {} if force else load_manifest()
+    manifest = {}
     index = []
+    rebuilt = skipped = 0
     total = len(periods)
     t_start = time.time()
+
     for i, p in enumerate(periods, 1):
+        pid = period_id(p)
+        sig = period_sig(p)
+        out_path = os.path.join(OUT, "periods", pid + ".json")
+        prev = previous.get(pid)
+
+        if (prev and prev.get("sig") == sig and os.path.isfile(out_path)
+                and os.path.getsize(out_path) == prev["entry"]["bytes"]):
+            index.append(prev["entry"])
+            manifest[pid] = prev
+            skipped += 1
+            print(f"[{i}/{total}] {pid}  unchanged, skipped")
+            continue
+
         t0 = time.time()
-        print(f"[{i}/{total}] {period_id(p)}")
+        print(f"[{i}/{total}] {pid}  rebuilding")
         try:
             payload = diff_period(p)
         except Exception:
             traceback.print_exc()
             continue
-        out_path = os.path.join(OUT, "periods", payload["id"] + ".json")
         with open(out_path, "w", encoding="utf-8") as fh:
             json.dump(payload, fh, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
         size = os.path.getsize(out_path)
+        entry = make_entry(payload, size)
+        index.append(entry)
+        manifest[pid] = {"sig": sig, "entry": entry}
+        rebuilt += 1
         print(f"    wrote {size:,} bytes in {time.time()-t0:.1f}s")
-        index.append({
-            "id": payload["id"],
-            "new": payload["new"],
-            "old": payload["old"],
-            "rule": payload["rule"],
-            "counts": payload["counts"],
-            "types": payload["types"],
-            "bytes": size,
-        })
+
+    save_manifest(manifest)
 
     index.sort(key=lambda e: _sort_tuple(e["new"]["label"]), reverse=True)
     # stable second pass: PT 期次排前面，Live 期次排后面
@@ -378,9 +446,25 @@ def main(major_min=None):
         "scope": {"from_major": major_min},
         "periods": index,
     }
-    with open(os.path.join(OUT, "index.json"), "w", encoding="utf-8") as fh:
-        json.dump(meta, fh, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
-    print(f"done: {len(index)} periods in {time.time()-t_start:.0f}s")
+    index_path = os.path.join(OUT, "index.json")
+    if rebuilt == 0 and _same_index(index_path, meta):
+        # nothing changed at all: keep the previous timestamp so a no-op run
+        # leaves the working tree clean
+        print("index.json unchanged")
+    else:
+        with open(index_path, "w", encoding="utf-8") as fh:
+            json.dump(meta, fh, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+    print(f"done: {rebuilt} rebuilt, {skipped} skipped, {len(index)} periods, "
+          f"{time.time()-t_start:.0f}s")
+
+
+def _same_index(path, meta):
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            old = json.load(fh)
+    except Exception:
+        return False
+    return old.get("scope") == meta["scope"] and old.get("periods") == meta["periods"]
 
 
 def _sort_tuple(name):
@@ -405,4 +489,4 @@ if __name__ == "__main__":
         for p in periods:
             print(f"{p['new']['key']:16} <- {p['old']['key']:16}  {p['rule']}")
     else:
-        main(major)
+        main(major, force="--force" in sys.argv)
