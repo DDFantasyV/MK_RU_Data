@@ -10,7 +10,8 @@ on:
 jobs:
   create-release-pt:
     runs-on: ubuntu-latest
-    if: contains(github.event.head_commit.message, '.')  # 基础过滤
+    # 只更新 web/ 静态站的提交（message 含 "web update"，不区分大小写）不触发发布
+    if: contains(github.event.head_commit.message, '.') && !contains(github.event.head_commit.message, 'web update')
 
     steps:
     - name: Checkout code
@@ -88,7 +89,8 @@ jobs:
 
   create-release:
     runs-on: ubuntu-latest
-    if: contains(github.event.head_commit.message, '.')  # 基础过滤
+    # 只更新 web/ 静态站的提交（message 含 "web update"，不区分大小写）不触发发布
+    if: contains(github.event.head_commit.message, '.') && !contains(github.event.head_commit.message, 'web update')
 
     steps:
       - name: Checkout code

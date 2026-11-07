@@ -1,1 +1,6 @@
 crashes/
+
+# GameParams diff build cache (web/tools/build.py)
+.gpcache/
+web/.cache/
+__pycache__/
