@@ -24,7 +24,8 @@ web/
 
 - 同样的 `data/index.json` 与 `data/periods/*.json`，不复制任何数据；
 - **只显示战舰及其配件**的条目（规则见下），涂装 / 旗帜 / 贴花等独立内容不出现；
-- 条目名与左侧战舰名显示 `global.mo` 里的中文名（`data/names.json`）；没有对应 IDS 的条目保持原始 GameParams 键名；
+- 条目名与左侧战舰名在**简体中文界面**显示 `global.mo` 里的中文名（`data/names.json`）；
+  切换到 English / Русский 后与专业版一致，显示原始 GameParams 键名；中文界面下没有对应 IDS 的条目也保持原始键名；
 - 左侧导航：
   - 顶部是「全部战舰」，带全部条目的 `+新增 −删除 ~修改` 计数；
   - 下面是本期有变更的战舰，按名称排序，每艘显示自己的 `+ / − / ~` 计数；
@@ -88,7 +89,10 @@ Hakusan_BB.numConsumables       -> PJSB569_Hakusan
 ## 词条中文名（names.json）
 
 页面显示的条目名来自 `web/data/names.json`，由 `web/tools/gen_names.py` 从
-`PT/latest/global.mo`（gettext MO）生成。GameParams 键名到 IDS 的对应规则：
+`PT/latest/global.mo`（gettext MO）生成。**只有简体中文界面启用替换**：`app.js` 的
+`zhNames()` / `cn()` 在当前语言是 `zh-CN` 时才使用文件里的中文名；English / Русский
+界面保持原始 GameParams 键名，也不会下载 `names.json`（从英文 / 俄文切回简体中文时
+才按需加载并重画）。GameParams 键名到 IDS 的对应规则：
 
 | 类型 | 键名 | 使用的 IDS |
 | --- | --- | --- |
@@ -101,9 +105,10 @@ Hakusan_BB.numConsumables       -> PJSB569_Hakusan
 优先 `TITLE` 类词条，跳过 `DESCRIPTION` / `DESC` / `TOOLTIP` / `HINT` 等非名称词条。
 
 - 只收录简洁版会显示的条目，文件本身很小（约 0.57 MB）；专业版不受影响。
-- **找不到对应 IDS（或 IDS 值为空 / 未翻译）的条目不会写进文件**，页面继续显示原始键名
+- **找不到对应 IDS（或 IDS 值为空 / 未翻译）的条目不会写进文件**，中文界面继续显示原始键名
   （例如尚未本地化的 `PBOM001_BeattyRageMode`、`PBSC558_AZUR_Cheshire`）。
-- 原始键名保留在条目行 / 左侧战舰的 `title` 提示里；搜索同时匹配中文名和原始键名。
+- 原始键名保留在条目行 / 左侧战舰的 `title` 提示里；搜索在中文界面同时匹配中文名和原始键名，
+  英文 / 俄文界面匹配原始键名（切语言时会清掉搜索索引里缓存的中文名）。
 - 生成结果是确定性的（键排序、无时间戳），只有 `global.mo` 或数据真的变化时才会改动。
 
 更新数据后重新生成（`mkunpack.bat` 在 `build.py` 之后已自动执行）：

@@ -22,7 +22,9 @@ derived from the key:
 Only the entries that actually appear in the simple edition (``SHIP_TYPES``
 plus ``Other`` entries with a parent ship) are emitted, so the file stays
 small (~0.6 MB).  Entries without a translation are simply absent and the
-page keeps showing the raw GameParams key.
+page keeps showing the raw GameParams key.  The map is only applied when the
+UI language is Simplified Chinese; the English / Russian pages keep showing
+raw GameParams keys and never download this file.
 
 Usage::
 

@@ -222,9 +222,15 @@ const state = {
 const el = (id) => document.getElementById(id);
 
 /* ------------------------------------------------------------- 词条中文名 */
-/* data/names.json 把 GameParams 键名映射到 global.mo 里的中文名；
- * 没有译名时（例如尚未本地化的新条目）继续显示原始键名。 */
+/* data/names.json 把 GameParams 键名映射到 global.mo 里的中文名，只在简体中文
+ * 界面启用；英文 / 俄文界面与专业版一致，显示原始 GameParams 键名。
+ * 中文界面下没有译名的条目（例如尚未本地化的新条目）同样显示原始键名。 */
+function zhNames() {
+  return MK_i18n.locale() === MK_i18n.DEFAULT_CODE;
+}
+
 function cn(name) {
+  if (!zhNames()) return name;
   return (state.names && state.names[name]) || name;
 }
 
@@ -611,9 +617,11 @@ function ensureFieldConfig() {
 
 let namesPromise = null;
 
-/** 载入 data/names.json（GameParams 键名 -> global.mo 中文名），失败时退回原始键名。 */
+/** 载入 data/names.json（GameParams 键名 -> global.mo 中文名），失败时退回原始键名。
+ *  只有简体中文界面才需要它；其它语言直接返回空表，等切回中文时再下载。 */
 function ensureNames() {
   if (namesPromise) return namesPromise;
+  if (!zhNames()) return Promise.resolve(state.names);
   namesPromise = (async () => {
     try {
       const res = await fetch(BASE + 'data/names.json', { cache: 'no-cache' });
@@ -758,11 +766,21 @@ async function showPeriod(id) {
 }
 
 /* ------------------------------------------------------------- locale */
-function onLocaleChange() {
+/** 搜索索引里混有显示名（中文名 / 原始键名），切语言后必须重算。 */
+function clearHaystacks() {
+  if (!state.period || !state.period.entries) return;
+  for (const entry of state.period.entries) delete entry.__hay;
+}
+
+async function onLocaleChange() {
+  clearHaystacks();
   renderChannels();
   renderPeriodSelect();
   renderGenerated();
   if (!state.period) { paintEmpty(); return; }
+  /* 只有从英文 / 俄文切回简体中文时才需要下载中文名文件 */
+  if (zhNames()) await ensureNames();
+  clearHaystacks();
   renderShips();
   renderHead();
   renderStats();
@@ -895,6 +913,7 @@ async function boot() {
   paintEmpty();
 
   // 字段清单、中文名与数据并行加载：列表渲染前要先拿到前两者。
+  // names.json 只服务简体中文界面，其他语言这里会直接返回。
   const fieldConfigReady = ensureFieldConfig();
   const namesReady = ensureNames();
 

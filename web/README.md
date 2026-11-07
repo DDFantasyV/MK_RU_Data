@@ -42,7 +42,7 @@ web/
 │   └── README.md             词条维护说明
 ├── data/
 │   ├── index.json            期次索引（含每期统计）
-│   ├── names.json            GameParams 键名 → 中文名（简洁版使用）
+│   ├── names.json            GameParams 键名 → 中文名（简洁版，仅简体中文界面）
 │   └── periods/<id>.json     每期的差异数据，按需加载
 └── tools/                    本地脚本（不参与页面功能）
     ├── gpdiff.py             GameParams 解码 / 归一化 / 差异 / 折叠
@@ -85,6 +85,7 @@ msgstr "Added entries"           # 英文译文
 * HTML 静态文案用 `data-i18n`（纯文本）、`data-i18n-html`（含 `<code>` / `<span>` 等受信任标签）、`data-i18n-placeholder`、`data-i18n-title`、`data-i18n-aria-label`、`data-i18n-content` 标注。
 * 占位符写作 `{name}`，译文必须保留同名占位符；数字、日期用 `Intl.NumberFormat` / `Intl.DateTimeFormat` 跟随当前语言，不写进词条。
 * `简体中文` / `English` / `Русский` 三个语言名以各自语言显示（词条中标记 `#, keep-original`）。
+* 条目名不属于界面词条：简洁版只有在**简体中文界面**才用 `data/names.json` 把 GameParams 键名换成 `global.mo` 里的中文名；English / Русский 界面显示原始键名，也不下载该文件（切回中文时按需加载）。
 * 新增语言的步骤：在 `i18n/` 放一份 `<code>.po`，在 `assets/i18n.js` 的 `LOCALES` 里补一项（`code` / `file` / Intl `tag` / 复数类别映射），顶栏下拉框会自动出现该语言。
 
 改完词条或新增文案后运行校验：
@@ -163,7 +164,7 @@ python web/tools/build.py --from-major 25 --plan   # 只打印配对关系，不
 构建完成后同步简洁版的数据（`mkunpack.bat` 已包含这两步；单独重建数据时需要手动补跑）：
 
 ```powershell
-py -3 web/tools/gen_names.py                       # 重新生成 data/names.json（简洁版词条中文名）
+py -3 web/tools/gen_names.py                       # 重新生成 data/names.json（简洁版中文界面词条名）
 py -3 web/tools/gen_simple_fields.py --max-depth 1 # 字段清单：只保留一级路径，保留已有的 false
 ```
 
