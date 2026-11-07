@@ -573,45 +573,19 @@ function entryOf(node) {
  *   - 没写到的路径：继承父项；顶级路径默认不可见。
  * 所以只写一级条目的清单（例如 `A_ATBA: true;`）就能控制整棵子树。
  */
-function createFieldFilter(config) {
-  return (keys) => {
-    let path = '';
-    let visible = false;
-    for (const key of keys) {
-      path = path ? path + ' >> ' + key : key;
-      const value = config.get(path);
-      if (value === false) return false;
-      if (value === true) visible = true;
-    }
-    return visible;
-  };
-}
-
 let fieldConfigPromise = null;
 
 /** 首次展开条目时载入 field-tree.conf；失败时退回“全部显示”。 */
 function ensureFieldConfig() {
   if (fieldConfigPromise) return fieldConfigPromise;
-  fieldConfigPromise = (async () => {
-    try {
-      const res = await fetch(BASE + 'simple/field-tree.conf', { cache: 'no-cache' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const text = await res.text();
-      const config = new Map();
-      for (const line of text.split(/\r?\n/)) {
-        const value = line.trim();
-        if (!value || value.charAt(0) === '#') continue;
-        const match = /^(.*?):\s*(true|false)\s*;?\s*$/.exec(value);
-        if (match) config.set(match[1].trim(), match[2] === 'true');
-      }
-      state.fieldFilter = createFieldFilter(config);
-    } catch (err) {
-      console.warn('[simple] 无法载入 field-tree.conf，字段树将全部显示：' + err.message);
-      state.fieldFilter = null;
+  fieldConfigPromise = MK_simpleFields.load(BASE + 'simple/field-tree.conf').then((result) => {
+    state.fieldFilter = result.filter;
+    if (result.error) {
+      console.warn('[simple] 无法载入 field-tree.conf，字段树将全部显示：' + result.error.message);
       state.fieldConfigFailed = true;
     }
     return state.fieldFilter;
-  })();
+  });
   return fieldConfigPromise;
 }
 

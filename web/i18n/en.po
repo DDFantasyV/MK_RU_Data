@@ -355,3 +355,254 @@ msgstr "Everything that changed here is unrelated to ship data (models, effects,
 
 msgid "{n} 组重复数据已合并显示"
 msgstr "Identical groups merged: {n}"
+
+# ============================================================
+# History page
+# ============================================================
+
+#. Page-view switch at the top of the simple edition
+msgid "版本变更"
+msgstr "Changes"
+
+msgid "历史变更"
+msgstr "History"
+
+msgid "页面视图"
+msgstr "Page view"
+
+msgid "战舰历史变更 · Мир кораблей 数据变更"
+msgstr "Ship history · Мир кораблей data changes"
+
+msgid "逐舰回看《战舰世界》GameParams 参数在不同版本中的变化"
+msgstr "Follow a ship's GameParams parameters across versions in World of Warships"
+
+msgid "逐舰回看 <code>GameParams</code> 参数在不同版本中的变化"
+msgstr "Follow one ship's <code>GameParams</code> parameters across versions"
+
+msgid "战舰"
+msgstr "Ships"
+
+msgid "战舰列表"
+msgstr "Ship list"
+
+msgid "全部国家"
+msgstr "All nations"
+
+msgid "全部舰种"
+msgstr "All types"
+
+msgid "搜索参数路径 / 配件名…"
+msgstr "Search parameter paths / module names…"
+
+msgid "展开全部"
+msgstr "Expand all"
+
+msgid "收起全部"
+msgstr "Collapse all"
+
+msgid "战舰本体"
+msgstr "Ship"
+
+msgid "加入"
+msgstr "Joined"
+
+msgid "加入 {label}"
+msgstr "Joined {label}"
+
+msgid "移除"
+msgstr "Removed"
+
+msgid "已移除"
+msgstr "Removed"
+
+msgid "数据起点"
+msgstr "Data starts"
+
+msgid "早于 {label}"
+msgstr "Before {label}"
+
+msgid "移除于 {label}"
+msgstr "Removed in {label}"
+
+msgid "新增于 {label}"
+msgstr "Added in {label}"
+
+msgid "变更版本"
+msgstr "Versions changed"
+
+msgid "变更参数"
+msgstr "Parameters changed"
+
+msgid "涉及条目"
+msgstr "Entries affected"
+
+msgid "变更次数"
+msgstr "Changes"
+
+msgid "参数"
+msgstr "Parameter"
+
+msgid "版本 →"
+msgstr "Version →"
+
+msgid "旧值"
+msgstr "Old"
+
+msgid "新值"
+msgstr "New"
+
+msgid "参数新增"
+msgstr "Parameter added"
+
+msgid "参数移除"
+msgstr "Parameter removed"
+
+msgid "仅列出有变更的版本；参数按条目分组，版本从左到右递增。"
+msgstr "Only versions with changes are shown; parameters are grouped by entry, and versions increase from left to right."
+
+msgid "该舰于 {label}加入；加入时的初始参数不计入变更。"
+msgstr "The ship joined in {label}; its initial parameters are not counted as changes."
+
+msgid "下表列出加入后发生变更的参数。"
+msgstr "The table below lists parameters that changed after the ship joined."
+
+msgid "该舰在数据起点 {label} 之前已加入；下表列出 {label} 起的参数变更。"
+msgstr "The ship joined before the data starts ({label}); the table below lists parameter changes from {label}."
+
+msgid "该舰于 {label}移除。"
+msgstr "The ship was removed in {label}."
+
+msgid "该舰加入后暂无变更"
+msgstr "No changes after the ship joined"
+
+msgid "该舰已移除"
+msgstr "The ship was removed"
+
+msgid "暂无记录到的变更"
+msgstr "No recorded changes"
+
+msgid "该舰在数据起点 {label} 之前已加入；{label} 起没有记录到参数变更。"
+msgstr "The ship joined before the data starts ({label}); no parameter changes are recorded from {label}."
+
+msgid "该舰于 {label}移除，未记录到参数变更。"
+msgstr "The ship was removed in {label}; no parameter changes are recorded."
+
+msgid "该配件新增后尚无参数变更。"
+msgstr "No parameter changes since this module was added."
+
+msgid "该配件没有记录到参数变更。"
+msgstr "No parameter changes are recorded for this module."
+
+msgid "正在载入…"
+msgstr "Loading…"
+
+msgid "正在读取该舰的历史变更数据。"
+msgstr "Loading this ship's change history."
+
+msgid "没有匹配的参数"
+msgstr "No matching parameters"
+
+msgid "读取 {path} 失败（{err}）。请用 HTTP 服务打开本页。"
+msgstr "Failed to read {path} ({err}). Open this page over HTTP."
+
+msgid "{label}（{channel}）"
+msgstr "{label} ({channel})"
+
+msgid "{n} 个版本"
+msgid_plural "{n} 个版本"
+msgstr[0] "{n} version"
+msgstr[1] "{n} versions"
+
+msgid "{n} 项参数"
+msgid_plural "{n} 项参数"
+msgstr[0] "{n} parameter"
+msgstr[1] "{n} parameters"
+
+#. Nation (GameParams nation value)
+msgid "美国"
+msgstr "USA"
+
+msgid "日本"
+msgstr "Japan"
+
+msgid "苏联"
+msgstr "USSR"
+
+msgid "德国"
+msgstr "Germany"
+
+msgid "英国"
+msgstr "UK"
+
+msgid "法国"
+msgstr "France"
+
+msgid "意大利"
+msgstr "Italy"
+
+msgid "泛亚"
+msgstr "Pan-Asia"
+
+msgid "欧洲"
+msgstr "Europe"
+
+msgid "荷兰"
+msgstr "Netherlands"
+
+msgid "西班牙"
+msgstr "Spain"
+
+msgid "泛美"
+msgstr "Pan-America"
+
+msgid "英联邦"
+msgstr "Commonwealth"
+
+msgid "活动"
+msgstr "Event"
+
+#. Ship type (GameParams species value)
+msgid "战列舰"
+msgstr "Battleship"
+
+msgid "巡洋舰"
+msgstr "Cruiser"
+
+msgid "驱逐舰"
+msgstr "Destroyer"
+
+msgid "航空母舰"
+msgstr "Aircraft carrier"
+
+msgid "潜艇"
+msgstr "Submarine"
+
+msgid "辅助舰"
+msgstr "Auxiliary"
+
+msgid "未知"
+msgstr "Unknown"
+
+msgid "该舰移除时没有记录到参数变化。"
+msgstr "No parameter changes are recorded when the ship was removed."
+
+msgid "该舰加入时的初始参数不计入变更。"
+msgstr "The ship's initial parameters at introduction are not counted as changes."
+
+msgid "该舰没有记录到参数变化。"
+msgstr "No parameter changes are recorded for this ship."
+
+msgid "该舰在数据起点 {label} 之前已加入。"
+msgstr "The ship joined before the data starts ({label})."
+
+msgid "参数时间线"
+msgstr "Parameter timeline"
+
+msgid "字段范围：simple/field-tree.conf"
+msgstr "Field scope: simple/field-tree.conf"
+
+msgid "当前字段清单隐藏了该舰的全部参数。"
+msgstr "The current field list hides all parameters for this ship."
+
+msgid "生成时的参数总数；表格按 field-tree.conf 实时过滤"
+msgstr "Total parameters at generation; the table is filtered live by field-tree.conf"

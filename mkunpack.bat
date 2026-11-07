@@ -156,6 +156,13 @@ if errorlevel 1 (
     goto :finish
 )
 
+"%PY_EXE%" -u "web\tools\build_history.py" --from-major 25
+if errorlevel 1 (
+    echo.
+    echo [ERROR] 历史变更数据生成失败
+    goto :finish
+)
+
 echo.
 echo 提交并推送...
 git rev-parse --is-inside-work-tree >nul 2>&1

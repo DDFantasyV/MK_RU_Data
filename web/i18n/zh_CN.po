@@ -355,3 +355,252 @@ msgstr "该条目的差异都属于无关字段（模型、特效、装甲、内
 
 msgid "{n} 组重复数据已合并显示"
 msgstr "{n} 组重复数据已合并显示"
+
+# ============================================================
+# 历史变更页
+# ============================================================
+
+#. 简洁版顶部的页面视图切换
+msgid "版本变更"
+msgstr "版本变更"
+
+msgid "历史变更"
+msgstr "历史变更"
+
+msgid "页面视图"
+msgstr "页面视图"
+
+msgid "战舰历史变更 · Мир кораблей 数据变更"
+msgstr "战舰历史变更 · Мир кораблей 数据变更"
+
+msgid "逐舰回看《战舰世界》GameParams 参数在不同版本中的变化"
+msgstr "逐舰回看《战舰世界》GameParams 参数在不同版本中的变化"
+
+msgid "逐舰回看 <code>GameParams</code> 参数在不同版本中的变化"
+msgstr "逐舰回看 <code>GameParams</code> 参数在不同版本中的变化"
+
+msgid "战舰"
+msgstr "战舰"
+
+msgid "战舰列表"
+msgstr "战舰列表"
+
+msgid "全部国家"
+msgstr "全部国家"
+
+msgid "全部舰种"
+msgstr "全部舰种"
+
+msgid "搜索参数路径 / 配件名…"
+msgstr "搜索参数路径 / 配件名…"
+
+msgid "展开全部"
+msgstr "展开全部"
+
+msgid "收起全部"
+msgstr "收起全部"
+
+msgid "战舰本体"
+msgstr "战舰本体"
+
+msgid "加入"
+msgstr "加入"
+
+msgid "加入 {label}"
+msgstr "加入 {label}"
+
+msgid "移除"
+msgstr "移除"
+
+msgid "已移除"
+msgstr "已移除"
+
+msgid "数据起点"
+msgstr "数据起点"
+
+msgid "早于 {label}"
+msgstr "早于 {label}"
+
+msgid "移除于 {label}"
+msgstr "移除于 {label}"
+
+msgid "新增于 {label}"
+msgstr "新增于 {label}"
+
+msgid "变更版本"
+msgstr "变更版本"
+
+msgid "变更参数"
+msgstr "变更参数"
+
+msgid "涉及条目"
+msgstr "涉及条目"
+
+msgid "变更次数"
+msgstr "变更次数"
+
+msgid "参数"
+msgstr "参数"
+
+msgid "版本 →"
+msgstr "版本 →"
+
+msgid "旧值"
+msgstr "旧值"
+
+msgid "新值"
+msgstr "新值"
+
+msgid "参数新增"
+msgstr "参数新增"
+
+msgid "参数移除"
+msgstr "参数移除"
+
+msgid "仅列出有变更的版本；参数按条目分组，版本从左到右递增。"
+msgstr "仅列出有变更的版本；参数按条目分组，版本从左到右递增。"
+
+msgid "该舰于 {label}加入；加入时的初始参数不计入变更。"
+msgstr "该舰于 {label}加入；加入时的初始参数不计入变更。"
+
+msgid "下表列出加入后发生变更的参数。"
+msgstr "下表列出加入后发生变更的参数。"
+
+msgid "该舰在数据起点 {label} 之前已加入；下表列出 {label} 起的参数变更。"
+msgstr "该舰在数据起点 {label} 之前已加入；下表列出 {label} 起的参数变更。"
+
+msgid "该舰于 {label}移除。"
+msgstr "该舰于 {label}移除。"
+
+msgid "该舰加入后暂无变更"
+msgstr "该舰加入后暂无变更"
+
+msgid "该舰已移除"
+msgstr "该舰已移除"
+
+msgid "暂无记录到的变更"
+msgstr "暂无记录到的变更"
+
+msgid "该舰在数据起点 {label} 之前已加入；{label} 起没有记录到参数变更。"
+msgstr "该舰在数据起点 {label} 之前已加入；{label} 起没有记录到参数变更。"
+
+msgid "该舰于 {label}移除，未记录到参数变更。"
+msgstr "该舰于 {label}移除，未记录到参数变更。"
+
+msgid "该配件新增后尚无参数变更。"
+msgstr "该配件新增后尚无参数变更。"
+
+msgid "该配件没有记录到参数变更。"
+msgstr "该配件没有记录到参数变更。"
+
+msgid "正在载入…"
+msgstr "正在载入…"
+
+msgid "正在读取该舰的历史变更数据。"
+msgstr "正在读取该舰的历史变更数据。"
+
+msgid "没有匹配的参数"
+msgstr "没有匹配的参数"
+
+msgid "读取 {path} 失败（{err}）。请用 HTTP 服务打开本页。"
+msgstr "读取 {path} 失败（{err}）。请用 HTTP 服务打开本页。"
+
+msgid "{label}（{channel}）"
+msgstr "{label}（{channel}）"
+
+msgid "{n} 个版本"
+msgid_plural "{n} 个版本"
+msgstr[0] "{n} 个版本"
+
+msgid "{n} 项参数"
+msgid_plural "{n} 项参数"
+msgstr[0] "{n} 项参数"
+
+#. 国家（GameParams 的 nation 值）
+msgid "美国"
+msgstr "美国"
+
+msgid "日本"
+msgstr "日本"
+
+msgid "苏联"
+msgstr "苏联"
+
+msgid "德国"
+msgstr "德国"
+
+msgid "英国"
+msgstr "英国"
+
+msgid "法国"
+msgstr "法国"
+
+msgid "意大利"
+msgstr "意大利"
+
+msgid "泛亚"
+msgstr "泛亚"
+
+msgid "欧洲"
+msgstr "欧洲"
+
+msgid "荷兰"
+msgstr "荷兰"
+
+msgid "西班牙"
+msgstr "西班牙"
+
+msgid "泛美"
+msgstr "泛美"
+
+msgid "英联邦"
+msgstr "英联邦"
+
+msgid "活动"
+msgstr "活动"
+
+#. 舰种（GameParams 的 species 值）
+msgid "战列舰"
+msgstr "战列舰"
+
+msgid "巡洋舰"
+msgstr "巡洋舰"
+
+msgid "驱逐舰"
+msgstr "驱逐舰"
+
+msgid "航空母舰"
+msgstr "航空母舰"
+
+msgid "潜艇"
+msgstr "潜艇"
+
+msgid "辅助舰"
+msgstr "辅助舰"
+
+msgid "未知"
+msgstr "未知"
+
+msgid "该舰移除时没有记录到参数变化。"
+msgstr "该舰移除时没有记录到参数变化。"
+
+msgid "该舰加入时的初始参数不计入变更。"
+msgstr "该舰加入时的初始参数不计入变更。"
+
+msgid "该舰没有记录到参数变化。"
+msgstr "该舰没有记录到参数变化。"
+
+msgid "该舰在数据起点 {label} 之前已加入。"
+msgstr "该舰在数据起点 {label} 之前已加入。"
+
+msgid "参数时间线"
+msgstr "参数时间线"
+
+msgid "字段范围：simple/field-tree.conf"
+msgstr "字段范围：simple/field-tree.conf"
+
+msgid "当前字段清单隐藏了该舰的全部参数。"
+msgstr "当前字段清单隐藏了该舰的全部参数。"
+
+msgid "生成时的参数总数；表格按 field-tree.conf 实时过滤"
+msgstr "生成时的参数总数；表格按 field-tree.conf 实时过滤"

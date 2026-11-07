@@ -9,6 +9,21 @@
   align-items: start;
 }
 
+/* ------------------------------------------------ view switch (版本变更 / 历史变更) */
+.view-switch {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid rgba(87, 200, 255, .22);
+  border-radius: 10px;
+  background: linear-gradient(120deg, rgba(87, 200, 255, .08), rgba(87, 200, 255, .02));
+}
+.view-switch .mode-btn.on {
+  background: rgba(87, 200, 255, .14);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px rgba(87, 200, 255, .28);
+}
+
 /* ------------------------------------------------ ship navigation */
 .simple-side {
   position: sticky;

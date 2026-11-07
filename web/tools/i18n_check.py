@@ -32,9 +32,11 @@ ROOT = Path(__file__).resolve().parent.parent          # web/
 I18N = ROOT / 'i18n'
 LOCALES = [('zh_CN', 'zh_CN.po'), ('en', 'en.po'), ('ru', 'ru.po')]
 SOURCE_DIRS = [ROOT, ROOT / 'assets', ROOT / 'simple']
-HTML_FILES = [ROOT / 'index.html', ROOT / 'simple' / 'index.html']
+HTML_FILES = [ROOT / 'index.html', ROOT / 'simple' / 'index.html',
+              ROOT / 'simple' / 'history.html']
 JS_FILES = [ROOT / 'assets' / 'chrome.js', ROOT / 'assets' / 'fields.js',
-            ROOT / 'assets' / 'app.js', ROOT / 'simple' / 'app.js']
+            ROOT / 'assets' / 'app.js', ROOT / 'simple' / 'app.js',
+            ROOT / 'simple' / 'field-config.js', ROOT / 'simple' / 'history.js']
 
 errors: list[str] = []
 warnings: list[str] = []
@@ -242,6 +244,12 @@ def collect_js_refs(path: Path, refs: set[str], where: dict[str, str]) -> None:
                 continue
             refs.add(key)
             where.setdefault(key, f'{path.relative_to(ROOT)}:setEmpty()')
+    # 国家 / 舰种这类“值来自常量表”的 t(LOOKUP[value]) 调用：
+    # 把常量表里被引用的字符串也登记为词条。
+    for match in re.finditer(r'(?:NATIONS|TYPES)\s*=\s*\{(.*?)\n\};', src, re.S):
+        for value in re.findall(r":\s*'([^']+)'", match.group(1)):
+            refs.add(value)
+            where.setdefault(value, f'{path.relative_to(ROOT)}:lookup')
 
 
 ATTR_RE = re.compile(r'data-i18n(?:-[a-z-]+)?="([^"]*)"')

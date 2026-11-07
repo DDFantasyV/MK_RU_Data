@@ -20,8 +20,14 @@ const MK_chrome = (function () {
 
   let mounted = false;
 
+  /* 只有期次哈希（#/pt-…、#/live-…）才跟着专业版 / 简洁版切换走；
+     历史变更页的 #/<舰船键> 不应该带进另一个页面。 */
+  function preservedHash() {
+    return /^#\/(?:pt|live)-/.test(location.hash) ? location.hash : '';
+  }
+
   function syncModeLinks() {
-    const hash = location.hash || '';
+    const hash = preservedHash();
     document.querySelectorAll('[data-mode]').forEach((link) => {
       const mode = link.dataset.mode === 'simple' ? 'simple' : 'pro';
       const active = mode === EDITION;
@@ -56,7 +62,7 @@ const MK_chrome = (function () {
         /* 已经在这个版本里：不重载页面 */
         ev.preventDefault();
         if (mode === EDITION) return;
-        location.href = MODE_URL[mode] + (location.hash || '');
+        location.href = MODE_URL[mode] + preservedHash();
       });
     });
   }
