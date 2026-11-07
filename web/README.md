@@ -163,8 +163,8 @@ python web/tools/build.py --from-major 25 --plan   # 只打印配对关系，不
 构建完成后同步简洁版的数据（`mkunpack.bat` 已包含这两步；单独重建数据时需要手动补跑）：
 
 ```powershell
-py -3 web/tools/gen_names.py          # 重新生成 data/names.json（简洁版词条中文名）
-py -3 web/tools/gen_simple_fields.py  # 字段清单，保留已有的 false，新增路径默认 true
+py -3 web/tools/gen_names.py                       # 重新生成 data/names.json（简洁版词条中文名）
+py -3 web/tools/gen_simple_fields.py --max-depth 1 # 字段清单：只保留一级路径，保留已有的 false
 ```
 
 提交信息取自 `workspace/cn` 下最新的 PT 目录名（形如 `26.12pt1`），所以最终是 `update to 26.12pt1` —— 正好匹配 `release.yml` 里的 `([0-9]+\.[0-9]+)pt1$`，出包和部署会一起触发。
