@@ -12,6 +12,7 @@ const state = {
   expanded: new Set(),
   loading: false,
   pending: null,
+  channel: 'PT',
 };
 
 const el = (id) => document.getElementById(id);
@@ -76,6 +77,12 @@ function setHash(id) {
 }
 
 /* ------------------------------------------------------------- sidebar */
+const CHANNEL_LABEL = { PT: '测试服 PT', Live: '正式服 Live' };
+
+function channelPeriods() {
+  return state.index.periods.filter((p) => p.new.channel === state.channel);
+}
+
 function groupOf(name) {
   if (name === 'latest') return 'latest';
   return name.split('.')[0] + '.x';
@@ -83,12 +90,21 @@ function groupOf(name) {
 
 function renderSidebar() {
   const list = el('periodList');
-  const periods = state.index.periods;
+  const periods = channelPeriods();
   el('periodCount').textContent = periods.length + ' 期';
+
+  const all = state.index.periods;
+  el('chCountPT').textContent = all.filter((p) => p.new.channel === 'PT').length;
+  el('chCountLive').textContent = all.filter((p) => p.new.channel === 'Live').length;
+  document.querySelectorAll('#channelSeg button').forEach((b) => {
+    const on = b.dataset.ch === state.channel;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
 
   const groups = new Map();
   for (const p of periods) {
-    const g = groupOf(p.new.name);
+    const g = groupOf(p.new.label);
     if (!groups.has(g)) groups.set(g, []);
     groups.get(g).push(p);
   }
@@ -98,16 +114,16 @@ function renderSidebar() {
     html += `<div class="group-head">${esc(group)}<span class="muted" style="letter-spacing:0;text-transform:none;font-weight:400">${items.length}</span></div>`;
     for (const p of items) {
       const c = p.counts;
-      const badge = p.new.name === 'latest'
+      const badge = p.new.isLatest
         ? '<span class="pitem-badge latest">LATEST</span>'
-        : `<span class="pitem-badge">${esc(p.new.channel)}</span>`;
+        : '';
       html += `
         <button class="pitem" type="button" data-id="${esc(p.id)}">
           <div class="pitem-top">
-            <span class="pitem-name">${esc(p.new.name)}</span>
+            <span class="pitem-name">${esc(p.new.label)}</span>
             ${badge}
           </div>
-          <div class="pitem-vs">vs ${esc(p.old.channel)} ${esc(p.old.name)}</div>
+          <div class="pitem-vs">vs ${esc(p.old.channel)} ${esc(p.old.label)}</div>
           <div class="pitem-chips">
             <span class="c-a">+${f1(c.a)}</span>
             <span class="c-r">−${f1(c.r)}</span>
@@ -115,6 +131,9 @@ function renderSidebar() {
           </div>
         </button>`;
     }
+  }
+  if (!periods.length) {
+    html = '<div class="empty-state" style="padding:24px 12px;font-size:12px">暂无数据</div>';
   }
   list.innerHTML = html;
 }
@@ -129,23 +148,25 @@ function markActive(id) {
 
 /* ------------------------------------------------------------- top stats */
 function renderTopStats() {
-  const ps = state.index.periods;
+  const ps = channelPeriods();
   const totalEntries = ps.reduce((s, p) => s + p.counts.a + p.counts.r + p.counts.m, 0);
   const totalFields = ps.reduce((s, p) => s + p.counts.f, 0);
-  const names = ps.map((p) => p.new.name).filter((n) => n !== 'latest');
+  const names = ps.map((p) => p.new.label);
   el('topstats').innerHTML = `
-    <div class="topstat"><b>${ps.length}</b><span>期次</span></div>
-    <div class="topstat"><b>${fmtBig(totalEntries)}</b><span>条目变动</span></div>
-    <div class="topstat"><b>${fmtBig(totalFields)}</b><span>字段变化</span></div>
+    <div class="topstat"><b>${ps.length}</b><span>${esc(state.channel)} 总期次</span></div>
+    <div class="topstat"><b>${fmtBig(totalEntries)}</b><span>总条目变动</span></div>
+    <div class="topstat"><b>${fmtBig(totalFields)}</b><span>总字段变化</span></div>
     <div class="topstat"><b>${esc(names[names.length - 1] || '—')} → ${esc(names[0] || '—')}</b><span>版本跨度</span></div>`;
 }
 
 /* ------------------------------------------------------------- period view */
 function ruleLabel(rule) {
   switch (rule) {
-    case 'latest-vs-latest': return '对比 Live 最新一期';
+    case 'latest-vs-latest': return '对比正式服最新版';
     case 'same-version-prev-patch': return '对比同版本上一测试版';
-    case 'previous-live-release': return '对比上一期正式服版本';
+    case 'previous-live-release': return '对比上一正式服版本';
+    case 'live-vs-pt': return '对比同版本PT版';
+    case 'live-latest-vs-pt-last': return '对比PT服最新版本';
     default: return '对比旧版本';
   }
 }
@@ -154,29 +175,29 @@ function renderPeriodShell(p) {
   const c = p.counts;
   const n = p.new;
   const o = p.old;
-  const kicker = n.name === 'latest'
-    ? '最新测试服快照'
-    : `PT 测试服 · ${esc(n.name)}`;
+  const kicker = n.isLatest
+    ? (n.channel === 'PT' ? '最新测试服 PT' : '最新正式服 Live')
+    : `${CHANNEL_LABEL[n.channel] || n.channel} · ${esc(n.label)}`;
 
   el('periodView').innerHTML = `
     <section class="pv-head">
       <div class="pv-kicker">${kicker}</div>
       <h2 class="pv-title">
-        <span class="new">${esc(n.channel)} ${esc(n.name)}</span>
+        <span class="new">${esc(n.channel)} ${esc(n.label)}</span>
         <span class="sep">/</span>
-        <span class="old">对比 ${esc(o.channel)} ${esc(o.name)}</span>
+        <span class="old">对比 ${esc(o.channel)} ${esc(o.label)}</span>
       </h2>
 
       <div class="pv-compare">
         <div class="side-card old">
           <div class="side-label">旧版基线</div>
-          <div class="side-name">${esc(o.channel)} ${esc(o.name)}</div>
+          <div class="side-name">${esc(o.channel)} ${esc(o.label)}</div>
           <div class="side-meta">${fmtRel(o.rel)} · ${fmtBytes(o.size)}</div>
         </div>
         <div class="arrow-mid">→</div>
         <div class="side-card new">
           <div class="side-label">新版</div>
-          <div class="side-name">${esc(n.channel)} ${esc(n.name)}</div>
+          <div class="side-name">${esc(n.channel)} ${esc(n.label)}</div>
           <div class="side-meta">${fmtRel(n.rel)} · ${fmtBytes(n.size)}</div>
         </div>
       </div>
@@ -422,12 +443,18 @@ async function showPeriod(id) {
     return;
   }
 
+  if (meta.new.channel !== state.channel) {
+    state.channel = meta.new.channel;
+    renderSidebar();
+    renderTopStats();
+  }
+
   state.loading = true;
   state.pending = null;
   markActive(id);
   setHash(id);
   el('emptyState').hidden = false;
-  el('emptyState').querySelector('h2').textContent = '正在载入 ' + meta.new.name + ' …';
+  el('emptyState').querySelector('h2').textContent = '正在载入 ' + meta.new.label + ' …';
   el('emptyState').querySelector('p').textContent = '正在读取本期差异数据…';
 
   try {
@@ -462,6 +489,22 @@ function bindEvents() {
     const btn = ev.target.closest('.pitem');
     if (!btn) return;
     showPeriod(btn.dataset.id);
+  });
+
+  el('channelSeg').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button[data-ch]');
+    if (!btn || btn.dataset.ch === state.channel) return;
+    state.channel = btn.dataset.ch;
+    state.period = null;
+    renderSidebar();
+    renderTopStats();
+    const first = channelPeriods()[0];
+    if (first) {
+      showPeriod(first.id);
+    } else {
+      el('periodView').hidden = true;
+      el('emptyState').hidden = false;
+    }
   });
 
   el('periodView').addEventListener('click', (ev) => {
@@ -575,15 +618,17 @@ async function boot() {
     return;
   }
 
+  const want = currentId();
+  const wanted = want ? state.index.periods.find((p) => p.id === want) : null;
+  if (wanted) state.channel = wanted.new.channel;
+
   renderSidebar();
   renderTopStats();
   el('generatedAt').textContent = '数据生成于 ' + (state.index.generated || '—');
   bindEvents();
 
-  const want = currentId();
-  const target = want && state.index.periods.some((p) => p.id === want)
-    ? want
-    : (state.index.periods[0] && state.index.periods[0].id);
+  const first = channelPeriods()[0];
+  const target = wanted ? wanted.id : (first && first.id);
   if (target) showPeriod(target);
 }
 

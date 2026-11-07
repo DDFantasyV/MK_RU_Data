@@ -47,6 +47,44 @@ def parse_version(name):
     return (int(m.group(1)), int(m.group(2)), int(m.group(3) or 0))
 
 
+def next_version(v):
+    """下一个版本号：次版本 +1，超过 12 则跨年进主版本（25.12 -> 26.01）。"""
+    major, minor, patch = v
+    if minor >= 12:
+        return (major + 1, 1, patch)
+    return (major, minor + 1, patch)
+
+
+def version_label(v, channel):
+    """PT 带补丁号（26.12_1），Live 不带（26.12）。"""
+    major, minor, patch = v
+    if channel == "PT":
+        return "%d.%02d_%d" % (major, minor, patch)
+    return "%d.%02d" % (major, minor)
+
+
+def annotate_latest(snapshots):
+    """把 ``*/latest`` 识别成「同通道最大数字版本号 + 1」。"""
+    for channel in ("Live", "PT"):
+        chan = [s for s in snapshots.values() if s["channel"] == channel]
+        numbered = [s["version"] for s in chan if s["version"]]
+        for s in chan:
+            if s["version"] is not None:
+                s["label"] = s["name"]
+                s["resolved"] = s["version"]
+                s["is_latest"] = False
+                continue
+            if not numbered:
+                s["label"] = s["name"]
+                s["resolved"] = None
+                s["is_latest"] = True
+                continue
+            nxt = next_version(max(numbered))
+            s["label"] = version_label(nxt, channel)
+            s["resolved"] = nxt
+            s["is_latest"] = True
+
+
 def collect():
     snapshots = {}
     for channel in ("Live", "PT"):
@@ -70,6 +108,7 @@ def collect():
                 "size": os.path.getsize(path),
                 "version": parse_version(name),
             }
+    annotate_latest(snapshots)
     return snapshots
 
 
@@ -125,9 +164,42 @@ def build_periods(snapshots, major_min=None):
 
 def period_id(p):
     s = p["new"]
-    if s["version"] is None:
-        return f"pt-{s['name']}"
-    return "pt-%d.%02d_%d" % s["version"]
+    return f"{s['channel'].lower()}-{s['label']}"
+
+
+def build_live_periods(snapshots, major_min=None):
+    """正式服 Live 相对同期 PT 测试版的变化（Live 是新版，PT 是旧版）。
+
+    * ``Live/<ver>``   <- ``PT/<ver>_1``（同一版本的首个测试版）
+    * ``Live/latest``  <- 版本号最大的那个 ``PT/<ver>_<n>``
+    """
+    live = [s for s in snapshots.values() if s["channel"] == "Live" and s["version"]]
+    live.sort(key=lambda s: s["version"])
+    pt = [s for s in snapshots.values() if s["channel"] == "PT" and s["version"]]
+    pt.sort(key=lambda s: s["version"])
+
+    pt_by_cycle = {}
+    for s in pt:
+        pt_by_cycle.setdefault(s["version"][:2], []).append(s)
+
+    periods = []
+    for s in live:
+        if major_min is not None and s["version"][0] < major_min:
+            continue
+        first_patch = [p for p in pt_by_cycle.get(s["version"][:2], [])
+                       if p["version"][2] == 1]
+        if not first_patch:
+            continue
+        periods.append({"new": s, "old": first_patch[0], "rule": "live-vs-pt"})
+
+    live_latest = snapshots.get("Live/latest")
+    if live_latest and pt:
+        last_pt = max(pt, key=lambda s: s["version"])
+        periods.append({"new": live_latest, "old": last_pt,
+                        "rule": "live-latest-vs-pt-last"})
+
+    periods.sort(key=lambda p: p["new"]["version"] or (9999, 99, 99), reverse=True)
+    return periods
 
 
 # --------------------------------------------------------------------------
@@ -246,8 +318,10 @@ def diff_period(period):
     payload = {
         "id": period_id(period),
         "new": {"key": new_s["key"], "channel": new_s["channel"], "name": new_s["name"],
+                "label": new_s["label"], "isLatest": new_s["is_latest"],
                 "rel": new_s["rel"], "size": new_s["size"]},
         "old": {"key": old_s["key"], "channel": old_s["channel"], "name": old_s["name"],
+                "label": old_s["label"], "isLatest": old_s["is_latest"],
                 "rel": old_s["rel"], "size": old_s["size"]},
         "rule": period["rule"],
         "counts": counts,
@@ -265,7 +339,7 @@ def main(major_min=None):
         if stale.endswith(".json"):
             os.remove(os.path.join(period_dir, stale))
     snapshots = collect()
-    periods = build_periods(snapshots, major_min)
+    periods = build_periods(snapshots, major_min) + build_live_periods(snapshots, major_min)
     scope = f"major>={major_min}" if major_min is not None else "all majors"
     print(f"{len(snapshots)} snapshots, {len(periods)} periods ({scope})")
 
@@ -295,7 +369,9 @@ def main(major_min=None):
             "bytes": size,
         })
 
-    index.sort(key=lambda e: _sort_tuple(e["new"]["name"]), reverse=True)
+    index.sort(key=lambda e: _sort_tuple(e["new"]["label"]), reverse=True)
+    # stable second pass: PT 期次排前面，Live 期次排后面
+    index.sort(key=lambda e: 0 if e["new"]["channel"] == "PT" else 1)
 
     meta = {
         "generated": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
@@ -325,7 +401,8 @@ if __name__ == "__main__":
     major = _parse_from_major(sys.argv)
     if "--plan" in sys.argv:
         snapshots = collect()
-        for p in build_periods(snapshots, major):
+        periods = build_periods(snapshots, major) + build_live_periods(snapshots, major)
+        for p in periods:
             print(f"{p['new']['key']:16} <- {p['old']['key']:16}  {p['rule']}")
     else:
         main(major)

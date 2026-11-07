@@ -31,6 +31,10 @@
         <span>版本 / 期次</span>
         <span class="muted" id="periodCount"></span>
       </div>
+      <div class="channel-switch" id="channelSeg" role="tablist" aria-label="数据来源">
+        <button type="button" data-ch="PT" class="on" role="tab">测试服 PT<span class="n" id="chCountPT"></span></button>
+        <button type="button" data-ch="Live" role="tab">正式服 Live<span class="n" id="chCountLive"></span></button>
+      </div>
       <div id="periodList" class="period-list">
         <div class="skeleton-list"></div>
       </div>

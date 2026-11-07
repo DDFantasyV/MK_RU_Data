@@ -134,6 +134,42 @@ code { font-family: var(--mono); font-size: .92em; }
   scrollbar-width: thin;
   scrollbar-color: #24313f transparent;
 }
+
+.channel-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin: 0 12px 8px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-2);
+}
+.channel-switch button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 7px 4px;
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .13s, color .13s;
+}
+.channel-switch button:hover { color: var(--text-2); }
+.channel-switch button.on {
+  background: var(--panel-3);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.channel-switch button .n {
+  font-size: 10.5px;
+  margin-left: 4px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.channel-switch button.on .n { color: var(--accent); }
 .period-list::-webkit-scrollbar { width: 8px; }
 .period-list::-webkit-scrollbar-thumb { background: #24313f; border-radius: 8px; }
 
