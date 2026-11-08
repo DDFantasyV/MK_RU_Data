@@ -2,10 +2,9 @@
 
 The simple edition answers "what changed in this period"; this tool answers
 "how did one ship evolve across every period".  It walks the existing period
-diffs chronologically and turns them into one compact file per ship:
+diffs chronologically and turns them into one compact bundle:
 
-    web/data/history/index.json          ship roster + metadata + counts
-    web/data/history/<ship-key>.json     parameter timelines for one ship
+    web/data/history.json                roster + version table + per-ship timelines
 
 Design rules:
 
@@ -40,7 +39,7 @@ import gen_simple_fields as gsf  # noqa: E402
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 DATA = os.path.join(ROOT, "web", "data")
 PERIODS = os.path.join(DATA, "periods")
-OUT = os.path.join(DATA, "history")
+OUT = os.path.join(DATA, "history.json")
 FIELD_CONF = os.path.join(ROOT, "web", "simple", "field-tree.conf")
 NAMES = os.path.join(DATA, "names.json")
 
@@ -380,7 +379,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--from-major", type=int, default=25,
                         help="only periods whose major version is >= N (default: 25)")
-    parser.add_argument("--out", default=OUT, help="output directory")
+    parser.add_argument("--out", default=OUT,
+                        help="output file (default: web/data/history.json)")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(argv)
 
@@ -431,7 +431,7 @@ def main(argv=None):
     # ------------------------------------------------------------------
     # second pass: collect changes
     # ------------------------------------------------------------------
-    stats = {"periods": len(periods), "files": 0, "rows": 0, "events": 0,
+    stats = {"periods": len(periods), "timelines": 0, "rows": 0, "events": 0,
              "entries": 0, "expanded": 0, "skipped_intro": 0,
              "skipped_pre_intro": 0}
     for idx, pm in enumerate(periods, 1):
@@ -532,12 +532,11 @@ def main(argv=None):
     for hist in histories.values():
         dedupe_history(hist, period_versions, period_order)
 
-    os.makedirs(args.out, exist_ok=True)
-    # full rebuild: drop files for ships that no longer have any history
-    for fname in os.listdir(args.out):
-        if fname.endswith(".json"):
-            os.remove(os.path.join(args.out, fname))
+    out_dir = os.path.dirname(args.out)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
     ship_index = []
+    ships = {}
     for name in sorted(histories):
         hist = histories[name]
         if not hist.has_events():
@@ -547,12 +546,8 @@ def main(argv=None):
         if payload is None:
             ship_index.append(index_row(hist, names, None))
             continue
-        fname = safe_filename(name) + ".json"
-        with open(os.path.join(args.out, fname), "w", encoding="utf-8", newline="\n") as fh:
-            json.dump(payload, fh, ensure_ascii=False, sort_keys=True,
-                      separators=(",", ":"))
-            fh.write("\n")
-        stats["files"] += 1
+        ships[payload["id"]] = payload
+        stats["timelines"] += 1
         stats["rows"] += payload["stats"]["params"]
         stats["events"] += payload["stats"]["events"]
         stats["entries"] += payload["stats"]["entries"]
@@ -562,20 +557,21 @@ def main(argv=None):
     ship_index.sort(key=lambda row: (
         nation_order(row.get("nation")), row.get("tier") or 0,
         row.get("type") or "", row.get("cn") or row["id"], row["id"]))
-    index_payload = {
+    bundle = {
         "generated": index.get("generated"),
         "scope": {"from_major": args.from_major},
         "versions": [version_row(pm) for pm in periods],
         "ships": ship_index,
+        "data": ships,
     }
-    with open(os.path.join(args.out, "index.json"), "w", encoding="utf-8", newline="\n") as fh:
-        json.dump(index_payload, fh, ensure_ascii=False, sort_keys=True,
+    with open(args.out, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(bundle, fh, ensure_ascii=False, sort_keys=True,
                   separators=(",", ":"))
         fh.write("\n")
 
     if not args.quiet:
-        print("history: %d ships, %d files, %d params, %d events, %d entries"
-              % (len(ship_index), stats["files"], stats["rows"], stats["events"],
+        print("history: %d ships, %d timelines, %d params, %d events, %d entries"
+              % (len(ship_index), stats["timelines"], stats["rows"], stats["events"],
                  stats["entries"]))
         print("         %d periods, %d expanded entries, %d intro-period skips, "
               "%d pre-intro skips"
@@ -616,10 +612,6 @@ def entry_owners(entry, matcher):
         seen.add(key)
         hits.update(matcher.phrase(key))
     return sorted(hits)
-
-
-def safe_filename(name):
-    return re.sub(r"[^A-Za-z0-9_.-]", "_", name)
 
 
 def nation_order(nation):

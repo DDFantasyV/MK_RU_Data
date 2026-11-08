@@ -12,9 +12,7 @@ web/
 │   └── fields.js       两版共用的字段差异树（按路径折叠）
 ├── i18n/               三语词条（msgid = 简体中文原文）
 ├── tools/              生成脚本（gen_names.py、gen_simple_fields.py 等）
-├── data/history/       逐舰历史数据（build_history.py 生成）
-│   ├── index.json      战舰目录 + 全局期次表
-│   └── <ship-key>.json 单舰参数时间线（按需加载）
+├── data/history.json   逐舰历史数据（build_history.py 生成，单文件整包加载）
 └── simple/             简洁版（本目录）
     ├── index.html      版本变更入口（data-edition="simple"）
     ├── history.html    历史变更入口
@@ -147,7 +145,7 @@ A_Hull >> HP_BGS_1 >> ammoList: true;
   （删除条目等没有字段行的条目仍保留摘要）。
 - 页面启动时就加载该文件（因为要先判断哪些条目“差异全被隐藏”），之后复用；加载失败会在控制台告警，并退回显示全部字段/条目。
 - 历史变更页也会在运行时过滤单舰历史行：隐藏的行同时影响条目、版本列和顶部统计（`变更参数 / 涉及条目 / 变更次数 / 变更版本`）。因此**只改 `field-tree.conf`、不重跑 `build_history.py`** 时，历史页的表格和顶部统计会立即生效；左侧战舰列表里的参数计数仍是生成时按当时清单统计的总数，重跑 `build_history.py` 后才会一起更新。
-- 反过来，把 `false` 改回 `true` 时，如果单舰 JSON 是在 `false` 状态下生成的，需要重跑 `build_history.py` 才会把字段重新写回——运行时过滤只能隐藏数据里已有的行，不能恢复构建时已经丢弃的行。
+- 反过来，把 `false` 改回 `true` 时，如果 `history.json` 是在 `false` 状态下生成的，需要重跑 `build_history.py` 才会把字段重新写回——运行时过滤只能隐藏数据里已有的行，不能恢复构建时已经丢弃的行。
 
 ### 噪音规则（可选隐藏）
 
@@ -230,11 +228,10 @@ py -3 web/tools/build_history.py --from-major 25
 输出：
 
 ```text
-web/data/history/index.json          战舰目录（名称 / 等级 / 舰种 / 国家 / 加入版本 / 统计）
-web/data/history/<ship-key>.json     单舰的条目分组与参数事件
+web/data/history.json                战舰目录 + 期次表 + 每舰的条目分组与参数事件
 ```
 
-当前全量约 1 181 个单舰文件、14 MB；页面只在点击某艘战舰时下载对应文件（最大约 0.5 MB），不会一次加载整份历史。
+当前全量约 1 181 条战舰时间线，`history.json` 约 13.8 MB（Pages 上 gzip 传输约 1 MB）；页面启动时下载一次，之后切换战舰直接读内存，不再逐舰请求。
 
 #### 归并规则
 
@@ -243,12 +240,12 @@ web/data/history/<ship-key>.json     单舰的条目分组与参数事件
 3. **只列参数变更**：战舰加入之后新增/移除、并且之后有参数变更的配件，会在条目行显示“新增于 X / 移除于 X”作为上下文；**没有参数变更的纯配件增删不单独列出**。参数级的 `add` / `del` 仍照常显示。
 4. **同基线去重**：`PT/<ver>_2` 与 `Live/<ver>` 都相对 `PT/<ver>_1` 比较，同一个 `old → new` 会在两期各出现一次。生成时按时间顺序合并：完全相同的连续事件只保留第一次；旧值相同但新值不同的同版本分支，把后一个事件的旧值接到已显示的新值上，保持时间线连续。
 5. **折叠 / 截断展开**：期次 JSON 里构建时折叠成 `grp` 的子树、以及超过单条目上限的 `x`，会用该期的源快照重新做一次**不折叠**的字段差异，保证历史行始终有具体参数路径。
-6. **字段清单与噪音过滤**：先套 `gen_simple_fields.py` 的 `is_noise()` 规则（模型/特效/资源路径、`id`/内部键名、装甲厚度与系数、`AIParams`/`BattleUpgradeInfo`/`formations` 等），再按 `field-tree.conf` 的完整继承语义过滤（含 `>>` 深层路径）。历史页运行时还会用同一份清单再过滤一次，所以改清单后刷新即可同时影响两页；重跑 `build_history.py` 则会把过滤结果固化进单舰 JSON，并同步左侧计数。
+6. **字段清单与噪音过滤**：先套 `gen_simple_fields.py` 的 `is_noise()` 规则（模型/特效/资源路径、`id`/内部键名、装甲厚度与系数、`AIParams`/`BattleUpgradeInfo`/`formations` 等），再按 `field-tree.conf` 的完整继承语义过滤（含 `>>` 深层路径）。历史页运行时还会用同一份清单再过滤一次，所以改清单后刷新即可同时影响两页；重跑 `build_history.py` 则会把过滤结果固化进 `history.json`，并同步左侧计数。
 
 #### 数据约定
 
-- 事件存成紧凑数组 `[版本列下标, "chg"|"add"|"del", 旧值, 新值]`；版本列下标指向该舰 JSON 的 `versions`。
-- 单舰 JSON 的 `entries` 按类型排序（Ship → Unit → Component → Gun → Projectile → Director → Radar → Finder → Catapult → Aircraft → Modernization → Ability），条目内按字段路径排序。
+- 事件存成紧凑数组 `[版本列下标, "chg"|"add"|"del", 旧值, 新值]`；版本列下标指向该舰在 `history.json` 里的 `versions`。
+- 每舰时间线的 `entries` 按类型排序（Ship → Unit → Component → Gun → Projectile → Director → Radar → Finder → Catapult → Aircraft → Modernization → Ability），条目内按字段路径排序。
 - 生成是确定性的（`sort_keys`、无时间戳、无绝对路径）；`generated` 直接取自 `data/index.json` 的生成时间。
 - 每次 `build.py` 更新期次后都要重跑 `build_history.py`；`mkunpack.bat` 已把这一步放在 `gen_simple_fields.py` 之后，失败会中止提交。
 - 历史页的文案同样全部走 `web/i18n/*.po`；新增词条后运行 `py -3 web/tools/i18n_check.py`。`i18n_check.py` 已把 `history.html` / `history.js` 纳入源码引用检查，并会检查 `NATIONS` / `TYPES` 常量表里的动态词条。

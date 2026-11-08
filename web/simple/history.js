@@ -1,10 +1,10 @@
 /* 历史变更页 — 逐舰回看 GameParams 参数的时间线
  *
  * 数据由 web/tools/build_history.py 生成：
- *   data/history/index.json         战舰目录（名称 / 等级 / 舰种 / 国家 / 加入版本 / 统计）
- *   data/history/<ship-key>.json    该舰的条目分组与参数变更事件
+ *   data/history.json           战舰目录 + 期次表 + 每舰的条目分组与参数变更事件
  *
  * 页面本身不复制任何 GameParams 数据，只读取上面的静态 JSON。
+ * 整包在启动时加载一次，之后切换战舰直接读内存，不再逐舰发请求。
  * 时间线列只包含“该舰发生过变更”的期次；版本从左到右递增。
  */
 'use strict';
@@ -50,6 +50,7 @@ const TYPE_ORDER = Object.keys(TYPES);
 const el = (id) => document.getElementById(id);
 
 const state = {
+  bundle: null,
   index: null,
   ships: [],
   byId: new Map(),
@@ -148,7 +149,7 @@ function fetchJSON(url) {
 /* ------------------------------------------------------------- field filter */
 /* 与「版本变更」共用 simple/field-tree.conf：历史数据在构建时已按同一份清单
  * 过滤过一次，这里再在运行时应用一次，这样改完清单刷新页面就能同时影响两页，
- * 不必先重新生成 data/history。 */
+ * 不必先重新生成 data/history.json。 */
 function ensureFieldConfig() {
   if (state.fieldConfigPromise) return state.fieldConfigPromise;
   state.fieldConfigPromise = MK_simpleFields.load(BASE + 'simple/field-tree.conf').then((result) => {
@@ -837,7 +838,9 @@ async function loadShip(ship) {
   try {
     let data = state.cache.get(ship.id);
     if (!data) {
-      data = await fetchJSON(BASE + 'data/history/' + encodeURIComponent(ship.id) + '.json');
+      // 单文件打包：时间线已随 history.json 一次载入，这里只查表。
+      data = state.bundle && state.bundle.data ? state.bundle.data[ship.id] : null;
+      if (!data) throw new Error('data/history.json 中没有该舰的记录：' + ship.id);
       state.cache.set(ship.id, data);
     }
     if (ticket !== state.seq || !state.ship || state.ship.id !== ship.id) return;
@@ -855,7 +858,7 @@ async function loadShip(ship) {
     if (ticket !== state.seq) return;
     state.loading = false;
     state.loadError = err;
-    state.errorPath = 'data/history/' + ship.id + '.json';
+    state.errorPath = 'data/history.json';
     showError(state.errorPath, err);
   }
 }
@@ -1070,13 +1073,14 @@ async function boot() {
   const fieldConfigReady = ensureFieldConfig();
 
   try {
-    state.index = await fetchJSON(BASE + 'data/history/index.json');
+    state.bundle = await fetchJSON(BASE + 'data/history.json');
+    state.index = state.bundle;
   } catch (err) {
     el('shipList').innerHTML = '';
     el('shipCount').textContent = '';
     showEmpty(`<h2>${esc(t('无法载入数据'))}</h2>` +
       `<p>${esc(t('读取 {path} 失败（{err}）。请用 HTTP 服务打开本页。', {
-        path: 'data/history/index.json', err: err.message,
+        path: 'data/history.json', err: err.message,
       }))}</p>`);
     return;
   }

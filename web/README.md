@@ -48,13 +48,11 @@ web/
 │   ├── index.json            期次索引（含每期统计）
 │   ├── names.json            GameParams 键名 → 中文名（简洁版，仅简体中文界面）
 │   ├── periods/<id>.json     每期的差异数据，按需加载
-│   └── history/              逐舰历史数据（build_history.py 生成，按需加载）
-│       ├── index.json        战舰目录 + 全局期次表
-│       └── <ship-key>.json   单舰参数时间线
+│   └── history.json          战舰目录 + 全局期次表 + 全部战舰的时间线（单文件整包加载）
 └── tools/                    本地脚本（不参与页面功能）
     ├── gpdiff.py             GameParams 解码 / 归一化 / 差异 / 折叠
     ├── build.py              期次配对 + 生成 data/
-    ├── build_history.py      从期次 JSON 生成逐舰历史 data/history/
+    ├── build_history.py      从期次 JSON 生成逐舰历史 data/history.json
     ├── gen_names.py          从 PT/latest/global.mo 生成 data/names.json
     ├── reindex.py            仅用已有 periods/*.json 重建 index.json
     ├── i18n_check.py         校验三种语言的词条与源码引用
@@ -177,7 +175,7 @@ python web/tools/build.py --from-major 25 --plan   # 只打印配对关系，不
 ```powershell
 py -3 web/tools/gen_names.py                       # 重新生成 data/names.json（简洁版中文界面词条名）
 py -3 web/tools/gen_simple_fields.py --max-depth 1 # 字段清单：只保留一级路径，保留已有的 false
-py -3 web/tools/build_history.py --from-major 25   # 逐舰历史：data/history/index.json + 单舰 JSON
+py -3 web/tools/build_history.py --from-major 25   # 逐舰历史：data/history.json（单文件）
 ```
 
 `build_history.py` 只读 `data/periods/*.json` 和 `data/index.json`，不会重新解码 GameParams；只有折叠/截断的条目需要回源快照展开时，才读取该期的两个 `GameParams*.data`。全量生成通常需要约 3 分钟，输出约 14 MB。
@@ -241,4 +239,4 @@ py -3 web/tools/build_history.py --from-major 25   # 逐舰历史：data/history
 * 超过 128 项的序列折叠为 `<list len=N>`（只展开前 128 项）；超长字符串截断到 400 字符。
 * 计算结构摘要与计算字段差异使用**同一套遍历规则**（`gpdiff.iter_flat`），因此“有变化”的条目一定能列出具体字段，不会出现空差异。
 * 同一版本同时存在 `py2` / `py3` 两种序列化文件时，统一使用 `py2`（老的 `GameParams.data` 同样是 py2 格式），保证跨版本比较口径一致。
-* `data/history/` 是 `build_history.py` 从上面的期次差异归并出的逐舰时间线：每艘战舰一个文件，只记录**加入之后**的参数变更；加入时、以及加入之前的初始参数不列为变更。它复用期次数据的归属和噪音规则，并按 `field-tree.conf` 的完整继承语义过滤；同时去掉 `Other` 活动机制，把构建时折叠的 `grp` / 截断的 `x` 回源展开成具体字段路径。页面运行时还会再套一次同一份字段清单，因此直接改清单刷新即可影响两页。
+* `data/history.json` 是 `build_history.py` 从上面的期次差异归并出的逐舰时间线：全部战舰打包在这一个文件里（约 13.8 MB，gzip 后约 1 MB），只记录**加入之后**的参数变更；加入时、以及加入之前的初始参数不列为变更。它复用期次数据的归属和噪音规则，并按 `field-tree.conf` 的完整继承语义过滤；同时去掉 `Other` 活动机制，把构建时折叠的 `grp` / 截断的 `x` 回源展开成具体字段路径。页面运行时还会再套一次同一份字段清单，因此直接改清单刷新即可影响两页。

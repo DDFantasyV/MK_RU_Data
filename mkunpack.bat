@@ -117,7 +117,6 @@ echo.
 echo 更新网站数据...
 echo.
 
-rem 优先用仓库旁的 .venv，其次 py 启动器，最后 PATH 里的 python
 set "PY_EXE="
 if exist "%~dp0..\.venv\Scripts\python.exe" set "PY_EXE=%~dp0..\.venv\Scripts\python.exe"
 if not defined PY_EXE (
@@ -160,6 +159,12 @@ if errorlevel 1 (
 if errorlevel 1 (
     echo.
     echo [ERROR] 历史变更数据生成失败
+    goto :finish
+)
+
+if not exist "web\data\history.json" (
+    echo.
+    echo [ERROR] 未生成 web\data\history.json
     goto :finish
 )
 
