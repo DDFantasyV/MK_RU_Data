@@ -18,10 +18,11 @@ web/
     ├── history.html    历史变更入口
     ├── style.css       仅在共用样式之上覆盖布局（左侧导航 + 窄正文）
     ├── history.css     历史变更页的时间线 / 参数矩阵样式
-    ├── field-config.js 两页共用的 field-tree.conf 解析 / 继承过滤
+    ├── field-config.js 两页共用的 field-tree.conf / field-ignore.conf 解析与过滤
     ├── app.js          版本变更逻辑
     ├── history.js      历史变更逻辑（逐舰时间线）
-    ├── field-tree.conf 字段显示清单（自动生成，当前仅一级路径，约 34 KB）
+    ├── field-tree.conf 字段显示清单（自动生成，当前到二级路径，约 0.5 MB）
+    ├── field-ignore.conf 字段屏蔽词（手工维护，任意层级命中即隐藏整棵子树）
     └── README.md       本文件
 ```
 
@@ -126,7 +127,7 @@ py -3 web/tools/gen_names.py
 
 ## 字段显示清单（field-tree.conf）
 
-`field-tree.conf` 决定字段树里哪些路径可见，**同时控制「版本变更」与「历史变更」两页**：两页共用 `field-config.js`，启动时各自载入同一份清单；历史数据生成脚本 `build_history.py` 也按同一套继承语义过滤一次。它由脚本扫描 `web/data/periods/*.json`
+`field-tree.conf` 决定字段树里哪些路径可见，**同时控制「版本变更」与「历史变更」两页**：两页共用 `field-config.js`，启动时各自载入清单和屏蔽词表；`build_history.py` 生成 `history.json` 时**不做任何字段筛选**，这两份配置只在页面运行时套用。它由脚本扫描 `web/data/periods/*.json`
 里所有战舰相关条目、按页面同样的分段规则生成，路径形如：
 
 ```text
@@ -144,14 +145,35 @@ A_Hull >> HP_BGS_1 >> ammoList: true;
 - **所有差异都被清单隐藏的条目不再显示**：列表、左侧战舰和顶部统计都只算还有可见差异的条目
   （删除条目等没有字段行的条目仍保留摘要）。
 - 页面启动时就加载该文件（因为要先判断哪些条目“差异全被隐藏”），之后复用；加载失败会在控制台告警，并退回显示全部字段/条目。
-- 历史变更页也会在运行时过滤单舰历史行：隐藏的行同时影响条目、版本列和顶部统计（`变更参数 / 涉及条目 / 变更次数 / 变更版本`）。因此**只改 `field-tree.conf`、不重跑 `build_history.py`** 时，历史页的表格和顶部统计会立即生效；左侧战舰列表里的参数计数仍是生成时按当时清单统计的总数，重跑 `build_history.py` 后才会一起更新。
-- 反过来，把 `false` 改回 `true` 时，如果 `history.json` 是在 `false` 状态下生成的，需要重跑 `build_history.py` 才会把字段重新写回——运行时过滤只能隐藏数据里已有的行，不能恢复构建时已经丢弃的行。
+- 历史变更页也会在运行时过滤单舰历史行：隐藏的行同时影响条目、版本列和顶部统计（`变更参数 / 涉及条目 / 变更次数 / 变更版本`）。改清单或屏蔽词后**刷新即生效**；左侧战舰列表的参数计数也按同一套规则实时统计（首次渲染扫一遍数据，之后缓存）。
+- 因为 `history.json` 保留全部参数行（只排除 `Other` 条目等结构规则），把 `false` 改回 `true` 或删掉屏蔽词后刷新即可恢复，不再有构建时被字段规则丢弃的行。
+
+### 屏蔽词清单（field-ignore.conf）
+
+`field-ignore.conf` 是**手工维护**的屏蔽词表，与 `field-tree.conf` 叠加生效，两页共用；
+`build_history.py` 不再做任何字段筛选，改这里刷新即生效：
+
+```text
+effect          # 子串匹配：shotEffect、waveEffect… 都隐藏
+=descIDs        # = 精确匹配：只隐藏名称正好是 descIDs 的层级
+```
+
+- 每行一个词，`#` 开头为注释，空行忽略，**不区分大小写**。
+- 普通行按**子串**匹配；`=` 开头的行按**整段精确**匹配（适合 `id`、`name` 这类短词）。
+- 字段路径的**任意一级**命中，这一级及其整棵子树就隐藏；
+  即使 `field-tree.conf` 在该级写的是 `true`，命中屏蔽词也会隐藏。
+- 当前文件已经包含原先 `build_history.py` 的整套噪音规则（资源/特效词、`id`/内部键名、装甲、
+  `AIParams` 等），所以两页的默认可见范围与迁移前一致；删掉某行即可让对应参数重新出现。
+- `history.json` 现在保留全部参数行（只排除 `Other` 条目等结构规则），没有构建时丢弃的行；
+  左侧参数计数也按同一套规则实时统计。
+- 文件缺失或加载失败时按“没有屏蔽词”处理，不影响 `field-tree.conf` 的正常加载。
 
 ### 噪音规则（可选隐藏）
 
-> **当前清单只保留一级条目（`--max-depth 1`，共 1 525 行，另含 41 条深层路径）。**
-> 配合继承语义，一级 `true` 就代表整棵子树显示；要隐藏某个顶级分组，
+> **当前清单保留到二级路径（`--max-depth 2 --no-noise`，共 14 965 行：`true` 14 962、`false` 3）。**
+> 配合继承语义，二级 `true` 就代表整棵子树显示；要隐藏某个二级分组，
 > 把它改成 `false` 即可，不需要再维护几万条深层路径。
+> `--no-noise` 表示生成时不自动套用下面的噪音规则：所有路径默认可见，只保留手工写下的 `false`。
 
 生成脚本顶部有四组规则，路径命中任意一条就写 `false`（连同整棵子树），
 可以把字段树收敛到只保留与战舰数据有关的参数：
@@ -163,24 +185,27 @@ A_Hull >> HP_BGS_1 >> ammoList: true;
 | 非战舰系统 | 挂在战舰条目下、但属于别的系统 | `AIParams`、`BattleUpgradeInfo`、`formations` |
 | 装甲参数 | 字段名含 `armor` / `armour`，或字段名为 `barbettes` | `armor`（按分区 id 的厚度表）、`armorCoeff`、`armourCas` / `armourCit` / `armourDeck` / `armourExtremities`、`splashArmorCoeff`、`barbettes` |
 
-四组装甲／资源／标识／附属系统规则全开时，147 079 条路径里会隐藏约 4.6 万条
-（`true` 约 10.1 万）。要调整可见范围：
+四组装甲／资源／标识／附属系统规则全开时，全量 147 079 条路径里会隐藏约 4.6 万条
+（`true` 约 10.1 万）；当前清单用 `--no-noise` 生成，没有启用这组规则。这些规则只影响
+`field-tree.conf` 的生成；`build_history.py` 已不再套用，历史页的同等屏蔽由 `field-ignore.conf` 承担。
+要调整可见范围：
 
 - 改 `web/tools/gen_simple_fields.py` 顶部的 `ASSET_WORDS` / `ASSET_NAMES` /
   `IDENT_NAMES` / `NON_SHIP_ROOTS` / `ARMOR_WORDS` / `ARMOR_NAMES`，再重新生成；
 - 只想临时看某条路径，把 `field-tree.conf` 里对应行改成 `true` 即可
-  （重新生成时非噪音路径的 `false` 会保留，噪音路径仍会被规则压回 `false`）。
+  （普通生成时非噪音路径的 `false` 会保留、噪音路径会被规则压回 `false`；`--no-noise` 则不会改动手写的值）。
 
 生成 / 更新：
 
 ```powershell
-py -3 web/tools/gen_simple_fields.py                          # 保留已有 false，新路径默认 true（规则生效）
-py -3 web/tools/gen_simple_fields.py --reset                  # 忽略现有清单，按默认值重写（规则仍生效）
-py -3 web/tools/gen_simple_fields.py --all-true               # 所有路径一律 true（忽略规则，全部显示）
-py -3 web/tools/gen_simple_fields.py --all-true --max-depth 1 # 只保留一级条目（当前清单）
+py -3 web/tools/gen_simple_fields.py                            # 保留已有 false，新路径默认 true（规则生效）
+py -3 web/tools/gen_simple_fields.py --reset                    # 忽略现有清单，按默认值重写（规则仍生效）
+py -3 web/tools/gen_simple_fields.py --all-true                 # 所有路径一律 true（忽略规则，全部显示）
+py -3 web/tools/gen_simple_fields.py --no-noise --max-depth 2   # 保留到二级、不套噪音规则（当前清单）
 ```
 
 `--max-depth N` 只输出深度 ≤ N 的路径；文件头会记一行“仅输出深度 ≤ N 的路径”。
+`--no-noise` 不套噪音规则，但仍保留现有清单里的 `false`，新增路径默认 `true`。
 
 每次运行 `build.py` 更新数据后都要重新生成一次，否则新增字段会因缺失而隐藏。
 脚本会删除数据里已不存在的路径；已有的 `false` 会保留。
@@ -231,7 +256,7 @@ py -3 web/tools/build_history.py --from-major 25
 web/data/history.json                战舰目录 + 期次表 + 每舰的条目分组与参数事件
 ```
 
-当前全量约 1 181 条战舰时间线，`history.json` 约 13.8 MB（Pages 上 gzip 传输约 1 MB）；页面启动时下载一次，之后切换战舰直接读内存，不再逐舰请求。
+当前全量约 1 182 条战舰时间线，`history.json` 约 17.8 MB（Pages 上 gzip 传输约 1.5 MB）；页面启动时下载一次，之后切换战舰直接读内存，不再逐舰请求。
 
 #### 归并规则
 
@@ -240,7 +265,7 @@ web/data/history.json                战舰目录 + 期次表 + 每舰的条目�
 3. **只列参数变更**：战舰加入之后新增/移除、并且之后有参数变更的配件，会在条目行显示“新增于 X / 移除于 X”作为上下文；**没有参数变更的纯配件增删不单独列出**。参数级的 `add` / `del` 仍照常显示。
 4. **同基线去重**：`PT/<ver>_2` 与 `Live/<ver>` 都相对 `PT/<ver>_1` 比较，同一个 `old → new` 会在两期各出现一次。生成时按时间顺序合并：完全相同的连续事件只保留第一次；旧值相同但新值不同的同版本分支，把后一个事件的旧值接到已显示的新值上，保持时间线连续。
 5. **折叠 / 截断展开**：期次 JSON 里构建时折叠成 `grp` 的子树、以及超过单条目上限的 `x`，会用该期的源快照重新做一次**不折叠**的字段差异，保证历史行始终有具体参数路径。
-6. **字段清单与噪音过滤**：先套 `gen_simple_fields.py` 的 `is_noise()` 规则（模型/特效/资源路径、`id`/内部键名、装甲厚度与系数、`AIParams`/`BattleUpgradeInfo`/`formations` 等），再按 `field-tree.conf` 的完整继承语义过滤（含 `>>` 深层路径）。历史页运行时还会用同一份清单再过滤一次，所以改清单后刷新即可同时影响两页；重跑 `build_history.py` 则会把过滤结果固化进 `history.json`，并同步左侧计数。
+6. **不做字段筛选**：`history.json` 保留所有参数行（只应用归属、去重、`Other` 排除等结构规则），`field-tree.conf` / `field-ignore.conf` 完全由页面运行时套用，改完刷新即生效。因为不再裁剪，`history.json` 从约 13.8 MB 增至约 17.8 MB（gzip 后约 1.5 MB）；左侧参数计数由页面按同一套规则实时统计（首次渲染约 0.3–0.4 秒，之后缓存）。
 
 #### 数据约定
 

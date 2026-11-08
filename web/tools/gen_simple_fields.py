@@ -18,13 +18,16 @@
     战舰数据的附属系统；
   * --reset 忽略现有清单、全部按默认（true，噪音规则仍然生效）重写；
   * --all-true 忽略现有清单和噪音规则，所有路径一律写成 true（全部显示）；
-  * --max-depth N 只输出深度 ≤ N 的路径（1 = 只保留一级条目）。
+  * --no-noise 忽略噪音规则，但保留现有清单里的 false、新增路径默认 true
+    （用来生成“全部可见、只留手工 false”的清单模板）；
+  * --max-depth N 只输出深度 ≤ N 的路径（1 = 只保留一级条目，2 = 保留到二级）。
 
 用法：
   py -3 web/tools/gen_simple_fields.py
   py -3 web/tools/gen_simple_fields.py --reset
   py -3 web/tools/gen_simple_fields.py --all-true
   py -3 web/tools/gen_simple_fields.py --all-true --max-depth 1   # 只留一级条目
+  py -3 web/tools/gen_simple_fields.py --no-noise --max-depth 2   # 保留到二级，不套噪音规则
 """
 from __future__ import annotations
 
@@ -152,7 +155,7 @@ HEADER = [
     '#       没写到的路径继承父项，顶级路径默认不显示。',
     '# 路径用 “ >> ” 分隔，数组下标形如 [0]；新增路径默认 true。',
     '# 可选噪音规则（见生成脚本顶部）：资源路径、内部 id 与键名、装甲参数、非战舰系统；',
-    '#       普通生成会把这些路径写成 false，--all-true 则所有路径一律写成 true。',
+    '#       普通生成会把这些路径写成 false，--all-true 则一律 true，--no-noise 不套规则。',
 ]
 
 
@@ -253,8 +256,10 @@ def main() -> int:
                         help='忽略现有清单，按默认值重写（噪音规则仍然生效）')
     parser.add_argument('--all-true', action='store_true',
                         help='全部写成 true（忽略现有清单与噪音规则，等于“全部显示”）')
+    parser.add_argument('--no-noise', action='store_true',
+                        help='忽略噪音规则，但保留现有清单里的 false（新增路径默认 true）')
     parser.add_argument('--max-depth', type=int, default=0, metavar='N',
-                        help='只输出深度 ≤ N 的路径（0 = 全部；1 = 仅一级条目）')
+                        help='只输出深度 ≤ N 的路径（0 = 全部；1 = 仅一级条目；2 = 保留到二级）')
     parser.add_argument('--out', type=Path, default=OUT, help='输出路径（默认 web/simple/field-tree.conf）')
     args = parser.parse_args()
 
@@ -281,7 +286,7 @@ def main() -> int:
         path = ' >> '.join(keys)
         if args.all_true:
             value = True
-        elif is_noise(keys, asset_like):
+        elif is_noise(keys, asset_like) and not args.no_noise:
             value = False
             noise_count += 1
         elif path in existing:
@@ -295,7 +300,12 @@ def main() -> int:
             false_count += 1
         lines.append(f'{path}: {"true" if value else "false"};')
 
-    header = HEADER + ([f'# 仅输出深度 ≤ {args.max_depth} 的路径'] if args.max_depth else []) + [
+    notes = []
+    if args.max_depth:
+        notes.append(f'# 仅输出深度 ≤ {args.max_depth} 的路径')
+    if args.no_noise:
+        notes.append('# 噪音规则：本次未启用（--no-noise），所有未列出的子路径继承父项')
+    header = HEADER + notes + [
         f'# 路径总数：{len(lines)}（true {true_count}，false {false_count}；'
         f'其中噪音规则隐藏 {noise_count}，本次新增 {added}）',
         '',

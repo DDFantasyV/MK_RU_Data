@@ -34,10 +34,11 @@ web/
 │   ├── history.html          历史变更入口
 │   ├── style.css             简洁版覆盖样式（只写覆盖，复用 assets/style.css）
 │   ├── history.css           历史变更页的时间线 / 参数矩阵样式
-│   ├── field-config.js       两页共用的 field-tree.conf 解析 / 继承过滤
+│   ├── field-config.js       两页共用的 field-tree.conf / field-ignore.conf 解析与过滤
 │   ├── app.js                版本变更逻辑
 │   ├── history.js            历史变更逻辑（逐舰时间线）
-│   ├── field-tree.conf       简洁版字段显示清单（自动生成，当前仅一级路径）
+│   ├── field-tree.conf       简洁版字段显示清单（自动生成，当前到二级路径）
+│   ├── field-ignore.conf     简洁版字段屏蔽词（手工维护，任意层级命中即隐藏子树）
 │   └── README.md             简洁版约定与扩展说明
 ├── i18n/
 │   ├── zh_CN.po              简体中文（源语言，msgid 就是界面原文）
@@ -71,9 +72,9 @@ web/
 
 简洁版只收录**战舰本体与配件**：`Ship`、`Unit`、`Component`、`Gun`、`Projectile`、`Aircraft`、`Radar`、`Director`、`Finder`、`Catapult`、`Modernization`、`Ability`，以及挂在某艘战舰下的 `Other`（RageMode 等舰船机制）。涂装、旗帜、贴花（`Exterior`）、`Crew`、`Achievement`、`Collection`、`Campaign`、`DogTag`、`Building`、`BattleScript` 等独立内容不显示；没有唯一归属的配件先收进左侧的“未归属配件”，再按字段路径里的舰船键回填到本期变更的战舰。规则写在 `simple/app.js` 顶部的 `SHIP_TYPES` / `isShipRelated()` / `buildShipMatcher()`。
 
-**历史变更**页把同一套归属规则沿时间轴复用，但只保留真正的参数：`Other`（活动机制 / RageMode）不进入历史；战舰加入期及更早的事件全部丢弃，加入时的初始参数不算变更；只有参数变更的配件才会出现，加入之后新增/移除且之后有改动的配件在条目行显示标记，没有参数变更的纯配件增删不单独列出；参数级增删仍照常显示。`PT/<ver>_2` 与 `Live/<ver>` 同基线比较产生的重复事件会去重；构建时折叠的 `grp` / 截断的 `x` 会回源快照展开成具体路径；最后再套 `gen_simple_fields.py` 的噪音规则和 `field-tree.conf` 的完整继承语义。数据和页面细节见 `simple/README.md` 的“历史变更页”一节。
+**历史变更**页把同一套归属规则沿时间轴复用，但只保留真正的参数：`Other`（活动机制 / RageMode）不进入历史；战舰加入期及更早的事件全部丢弃，加入时的初始参数不算变更；只有参数变更的配件才会出现，加入之后新增/移除且之后有改动的配件在条目行显示标记，没有参数变更的纯配件增删不单独列出；参数级增删仍照常显示。`PT/<ver>_2` 与 `Live/<ver>` 同基线比较产生的重复事件会去重；构建时折叠的 `grp` / 截断的 `x` 会回源快照展开成具体路径；构建时**不做任何字段筛选**，`field-tree.conf` / `field-ignore.conf` 由页面运行时套用，改完刷新即生效。数据和页面细节见 `simple/README.md` 的“历史变更页”一节。
 
-简洁版的字段树由 `simple/field-tree.conf` 控制，**「版本变更」与「历史变更」两页共用** `simple/field-config.js` 解析同一份清单；历史页在运行时过滤单舰历史行，`build_history.py` 也用同一套继承语义生成数据。清单采用**继承语义**：`true` 显示该节点及其整棵子树，`false` 隐藏该节点及其整棵子树；没写到的子路径继承父项，顶级路径默认不显示（祖先 `false` 优先于更深层的 `true`）。该文件由 `py -3 web/tools/gen_simple_fields.py` 扫描所有期次的战舰相关条目生成（全量约 14.7 万条路径 / 8 MB；`--max-depth N` 可只输出到第 N 层）；`--reset` 可按默认值重写。生成脚本会按顶部规则把模型/特效等资源路径、内部 `id` 与键名、装甲厚度/系数/分区映射、以及 `AIParams` / `BattleUpgradeInfo` / `formations` 这类非战舰系统置为 `false`（规则全开时约 4.6 万条），`--all-true` 则忽略规则、全部写成 `true`。**当前清单只保留 1 525 条一级路径（`--max-depth 1`，另有 41 条深层路径），一级 `true` 即代表整棵子树显示；某个条目的差异若全被清单隐藏，该条目不再出现在列表和统计里。** 规则与调整方式见 `simple/README.md`。
+简洁版的字段树由 `simple/field-tree.conf` 控制，**「版本变更」与「历史变更」两页共用** `simple/field-config.js` 解析清单与屏蔽词；历史页在运行时过滤单舰历史行，`build_history.py` 生成数据时**不做任何字段筛选**。清单采用**继承语义**：`true` 显示该节点及其整棵子树，`false` 隐藏该节点及其整棵子树；没写到的子路径继承父项，顶级路径默认不显示（祖先 `false` 优先于更深层的 `true`）。该文件由 `py -3 web/tools/gen_simple_fields.py` 扫描所有期次的战舰相关条目生成（全量约 14.7 万条路径 / 8 MB；`--max-depth N` 可只输出到第 N 层）；`--reset` 可按默认值重写。生成脚本会按顶部规则把模型/特效等资源路径、内部 `id` 与键名、装甲厚度/系数/分区映射、以及 `AIParams` / `BattleUpgradeInfo` / `formations` 这类非战舰系统置为 `false`（规则全开时约 4.6 万条），`--all-true` 则忽略规则、全部写成 `true`，`--no-noise` 不套规则但保留已有的 `false`（新增路径默认 `true`）。**当前清单保留到二级路径（`--max-depth 2 --no-noise`，共 14 965 条：`true` 14 962、手工 `false` 3），二级 `true` 即代表整棵子树显示；某个条目的差异若全被清单隐藏，该条目不再出现在列表和统计里。** 另有手工维护的 `simple/field-ignore.conf`：普通行按子串、`=` 开头的行按整段精确匹配，任意一级命中就隐藏该级及整棵子树；它已接管原先构建时的全部噪音规则。规则与调整方式见 `simple/README.md`。
 
 简洁版渲染字段树时还会把**同一层里内容完全相同的同族实例**（`HP_AGS_1…10`、`AuraFar` / `AuraFar_Bubbles`、`A_Hull` / `B_Hull`）合并成一组显示，组名后标 `×N`；数组下标与纯数字键不合并，取值恰好相同的不同参数也不合并。逻辑在 `assets/fields.js`，`simple/app.js` 通过 `{ mergeDuplicates: true }` 开启，专业版不受影响。
 
@@ -173,9 +174,9 @@ python web/tools/build.py --from-major 25 --plan   # 只打印配对关系，不
 构建完成后同步简洁版的数据（`mkunpack.bat` 已包含这三步；单独重建数据时需要手动补跑）：
 
 ```powershell
-py -3 web/tools/gen_names.py                       # 重新生成 data/names.json（简洁版中文界面词条名）
-py -3 web/tools/gen_simple_fields.py --max-depth 1 # 字段清单：只保留一级路径，保留已有的 false
-py -3 web/tools/build_history.py --from-major 25   # 逐舰历史：data/history.json（单文件）
+py -3 web/tools/gen_names.py                                   # 重新生成 data/names.json（简洁版中文界面词条名）
+py -3 web/tools/gen_simple_fields.py --max-depth 2 --no-noise  # 字段清单：保留到二级路径，保留已有的 false
+py -3 web/tools/build_history.py --from-major 25               # 逐舰历史：data/history.json（单文件）
 ```
 
 `build_history.py` 只读 `data/periods/*.json` 和 `data/index.json`，不会重新解码 GameParams；只有折叠/截断的条目需要回源快照展开时，才读取该期的两个 `GameParams*.data`。全量生成通常需要约 3 分钟，输出约 14 MB。
@@ -239,4 +240,4 @@ py -3 web/tools/build_history.py --from-major 25   # 逐舰历史：data/history
 * 超过 128 项的序列折叠为 `<list len=N>`（只展开前 128 项）；超长字符串截断到 400 字符。
 * 计算结构摘要与计算字段差异使用**同一套遍历规则**（`gpdiff.iter_flat`），因此“有变化”的条目一定能列出具体字段，不会出现空差异。
 * 同一版本同时存在 `py2` / `py3` 两种序列化文件时，统一使用 `py2`（老的 `GameParams.data` 同样是 py2 格式），保证跨版本比较口径一致。
-* `data/history.json` 是 `build_history.py` 从上面的期次差异归并出的逐舰时间线：全部战舰打包在这一个文件里（约 13.8 MB，gzip 后约 1 MB），只记录**加入之后**的参数变更；加入时、以及加入之前的初始参数不列为变更。它复用期次数据的归属和噪音规则，并按 `field-tree.conf` 的完整继承语义过滤；同时去掉 `Other` 活动机制，把构建时折叠的 `grp` / 截断的 `x` 回源展开成具体字段路径。页面运行时还会再套一次同一份字段清单，因此直接改清单刷新即可影响两页。
+* `data/history.json` 是 `build_history.py` 从上面的期次差异归并出的逐舰时间线：全部战舰打包在这一个文件里（约 17.8 MB，gzip 后约 1.5 MB），只记录**加入之后**的参数变更；加入时、以及加入之前的初始参数不列为变更。它复用期次数据的归属规则，但**不做字段筛选**（`field-tree.conf` / `field-ignore.conf` 留给页面运行时）；同时去掉 `Other` 活动机制，把构建时折叠的 `grp` / 截断的 `x` 回源展开成具体字段路径。页面运行时套用两份配置，因此直接改清单/词表刷新即生效。

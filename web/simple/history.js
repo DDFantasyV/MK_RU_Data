@@ -147,12 +147,15 @@ function fetchJSON(url) {
 }
 
 /* ------------------------------------------------------------- field filter */
-/* 与「版本变更」共用 simple/field-tree.conf：历史数据在构建时已按同一份清单
- * 过滤过一次，这里再在运行时应用一次，这样改完清单刷新页面就能同时影响两页，
- * 不必先重新生成 data/history.json。 */
+/* 历史页运行时同时按 simple/field-tree.conf 与 simple/field-ignore.conf 过滤：
+ * history.json 构建时只套内置噪音规则，不再固化这两份配置，所以改完任一文件
+ * 刷新页面就生效，不需要重跑 build_history.py。 */
 function ensureFieldConfig() {
   if (state.fieldConfigPromise) return state.fieldConfigPromise;
-  state.fieldConfigPromise = MK_simpleFields.load(BASE + 'simple/field-tree.conf').then((result) => {
+  state.fieldConfigPromise = MK_simpleFields.load(
+    BASE + 'simple/field-tree.conf',
+    BASE + 'simple/field-ignore.conf'
+  ).then((result) => {
     state.fieldFilter = result.filter;
     if (result.error) {
       console.warn('[history] 无法载入 field-tree.conf，历史参数将全部显示：' + result.error.message);
@@ -164,7 +167,7 @@ function ensureFieldConfig() {
 }
 
 /**
- * 按 field-tree.conf 过滤一艘船的历史：
+ * 按字段清单 / 屏蔽词过滤一艘船的历史：
  *   - 隐藏所有路径都不可见的参数行；
  *   - 隐藏因此没有可见参数行的条目；
  *   - 重新计算版本列（只保留仍有可见事件/标记的版本）并重排事件下标；
@@ -358,11 +361,30 @@ function filteredShips() {
   });
 }
 
+/** 左栏“N 项”：按当前字段清单 / 屏蔽词实时统计，结果缓存在 ship 上。 */
+function visibleParamCount(ship) {
+  const bundle = state.bundle && state.bundle.data;
+  const payload = bundle ? bundle[ship.id] : null;
+  if (!payload || !state.fieldFilter) return ship.params || 0;
+  if (ship.__countFilter === state.fieldFilter) return ship.__count;
+  const filter = state.fieldFilter;
+  let count = 0;
+  for (const entry of payload.entries) {
+    for (const [path] of entry.rows) {
+      if (filter(pathSegments(path))) count += 1;
+    }
+  }
+  ship.__countFilter = filter;
+  ship.__count = count;
+  return count;
+}
+
 function shipItemHtml(ship) {
   const active = state.ship && state.ship.id === ship.id;
   const removed = ship.removed && ship.removed.label;
+  const params = visibleParamCount(ship);
   const count = ship.has
-    ? `<span class="ship-count" title="${esc(t('生成时的参数总数；表格按 field-tree.conf 实时过滤'))}">${esc(tn('{n} 项', ship.params, { n: compact(ship.params) }))}</span>`
+    ? `<span class="ship-count" title="${esc(t('按当前字段清单 / 屏蔽词实时统计'))}">${esc(tn('{n} 项', params, { n: compact(params) }))}</span>`
     : `<span class="ship-count">—</span>`;
   const intro = ship.intro && ship.intro.known
     ? `<span class="ship-intro">${esc(ship.intro.label)}</span>`
@@ -458,12 +480,12 @@ function renderHero() {
 
   let sub = '';
   if (ship.intro && ship.intro.known) {
-    sub = t('该舰于 {label}加入；加入时的初始参数不计入变更。', { label: introText(ship) });
+    sub = t('该舰于 {label} 加入。', { label: introText(ship) });
     if (hasVisible) sub += ' ' + t('下表列出加入后发生变更的参数。');
     else if (ship.has) sub += ' ' + t('当前字段清单隐藏了该舰的全部参数。');
   } else {
     if (hasVisible) {
-      sub = t('该舰在数据起点 {label} 之前已加入；下表列出 {label} 起的参数变更。', { label: state.dataStart });
+      sub = t('该舰在数据起点 {label} 之前已加入。下表列出 {label} 起的参数变更。', { label: state.dataStart });
     } else if (ship.has) {
       sub = t('该舰在数据起点 {label} 之前已加入。', { label: state.dataStart }) + ' '
         + t('当前字段清单隐藏了该舰的全部参数。');
@@ -472,7 +494,7 @@ function renderHero() {
     }
   }
   if (ship.removed && ship.removed.label) {
-    sub += ' ' + t('该舰于 {label}移除。', { label: ship.removed.label });
+    sub += ' ' + t('该舰于 {label} 移除。', { label: ship.removed.label });
   }
   el('historySub').textContent = sub;
 }
@@ -492,12 +514,11 @@ function renderStats() {
 function renderNote() {
   if (!state.data) { el('historyNote').innerHTML = ''; return; }
   el('historyNote').innerHTML =
-    `<span>${esc(t('仅列出有变更的版本；参数按条目分组，版本从左到右递增。'))}</span>` +
-    (state.fieldConfigFailed ? '' : `<span class="hn-chip">${esc(t('字段范围：simple/field-tree.conf'))}</span>`) +
+    `<span>${esc(t('仅列出有变更的版本，自动隐藏部分无关或已弃用参数。'))}</span>` +
     `<span class="hn-legend">` +
       `<span class="hn-chip chg">${esc(t('旧值'))} → ${esc(t('新值'))}</span>` +
-      `<span class="hn-chip add">+ ${esc(t('参数新增'))}</span>` +
-      `<span class="hn-chip del">− ${esc(t('参数移除'))}</span>` +
+      `<span class="hn-chip add">+ ${esc(t('新增参数'))}</span>` +
+      `<span class="hn-chip del">− ${esc(t('移除参数'))}</span>` +
     `</span>`;
 }
 
@@ -529,16 +550,16 @@ function showLoading() {
 
 function showNoHistory(ship) {
   let title = t('暂无记录到的变更');
-  let body = t('该舰在数据起点 {label} 之前已加入；{label} 起没有记录到参数变更。', {
+  let body = t('该舰在数据起点 {label} 之前已加入。{label} 起没有记录到参数变更。', {
     label: state.dataStart,
   });
   if (ship.intro && ship.intro.known) {
     title = t('该舰加入后暂无变更');
-    body = t('该舰于 {label}加入；加入时的初始参数不计入变更。', { label: introText(ship) });
+    body = t('该舰于 {label}加入。加入时的初始参数不计入变更。', { label: introText(ship) });
   }
   if (ship.removed && ship.removed.label) {
     title = t('该舰已移除');
-    body = t('该舰于 {label}移除，未记录到参数变更。', { label: ship.removed.label });
+    body = t('该舰于 {label} 移除，未记录到参数变更。', { label: ship.removed.label });
   }
   showEmpty(`<h2>${esc(title)}</h2><p>${esc(body)}</p>`);
 }

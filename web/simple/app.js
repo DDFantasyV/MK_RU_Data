@@ -575,10 +575,13 @@ function entryOf(node) {
  */
 let fieldConfigPromise = null;
 
-/** 首次展开条目时载入 field-tree.conf；失败时退回“全部显示”。 */
+/** 首次展开条目时载入 field-tree.conf / field-ignore.conf；失败时退回“全部显示”。 */
 function ensureFieldConfig() {
   if (fieldConfigPromise) return fieldConfigPromise;
-  fieldConfigPromise = MK_simpleFields.load(BASE + 'simple/field-tree.conf').then((result) => {
+  fieldConfigPromise = MK_simpleFields.load(
+    BASE + 'simple/field-tree.conf',
+    BASE + 'simple/field-ignore.conf'
+  ).then((result) => {
     state.fieldFilter = result.filter;
     if (result.error) {
       console.warn('[simple] 无法载入 field-tree.conf，字段树将全部显示：' + result.error.message);

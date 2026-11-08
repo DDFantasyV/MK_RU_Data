@@ -457,19 +457,28 @@ msgstr "Parameter added"
 msgid "参数移除"
 msgstr "Parameter removed"
 
-msgid "仅列出有变更的版本；参数按条目分组，版本从左到右递增。"
-msgstr "Only versions with changes are shown; parameters are grouped by entry, and versions increase from left to right."
+msgid "新增参数"
+msgstr "Added parameter"
 
-msgid "该舰于 {label}加入；加入时的初始参数不计入变更。"
-msgstr "The ship joined in {label}; its initial parameters are not counted as changes."
+msgid "移除参数"
+msgstr "Removed parameter"
+
+msgid "仅列出有变更的版本，自动隐藏部分无关或已弃用参数。"
+msgstr "Only versions with changes are shown; some irrelevant or deprecated parameters are hidden automatically."
+
+msgid "该舰于 {label} 加入。"
+msgstr "The ship joined in {label}."
+
+msgid "该舰于 {label}加入。加入时的初始参数不计入变更。"
+msgstr "The ship joined in {label}. Its initial parameters are not counted as changes."
 
 msgid "下表列出加入后发生变更的参数。"
 msgstr "The table below lists parameters that changed after the ship joined."
 
-msgid "该舰在数据起点 {label} 之前已加入；下表列出 {label} 起的参数变更。"
-msgstr "The ship joined before the data starts ({label}); the table below lists parameter changes from {label}."
+msgid "该舰在数据起点 {label} 之前已加入。下表列出 {label} 起的参数变更。"
+msgstr "The ship was already in the game before the data start ({label}). The table below lists parameter changes from {label}."
 
-msgid "该舰于 {label}移除。"
+msgid "该舰于 {label} 移除。"
 msgstr "The ship was removed in {label}."
 
 msgid "该舰加入后暂无变更"
@@ -481,10 +490,10 @@ msgstr "The ship was removed"
 msgid "暂无记录到的变更"
 msgstr "No recorded changes"
 
-msgid "该舰在数据起点 {label} 之前已加入；{label} 起没有记录到参数变更。"
-msgstr "The ship joined before the data starts ({label}); no parameter changes are recorded from {label}."
+msgid "该舰在数据起点 {label} 之前已加入。{label} 起没有记录到参数变更。"
+msgstr "The ship was already in the game before the data start ({label}). No parameter changes are recorded from {label}."
 
-msgid "该舰于 {label}移除，未记录到参数变更。"
+msgid "该舰于 {label} 移除，未记录到参数变更。"
 msgstr "The ship was removed in {label}; no parameter changes are recorded."
 
 msgid "该配件新增后尚无参数变更。"
@@ -598,11 +607,8 @@ msgstr "The ship joined before the data starts ({label})."
 msgid "参数时间线"
 msgstr "Parameter timeline"
 
-msgid "字段范围：simple/field-tree.conf"
-msgstr "Field scope: simple/field-tree.conf"
-
 msgid "当前字段清单隐藏了该舰的全部参数。"
 msgstr "The current field list hides all parameters for this ship."
 
-msgid "生成时的参数总数；表格按 field-tree.conf 实时过滤"
-msgstr "Total parameters at generation; the table is filtered live by field-tree.conf"
+msgid "按当前字段清单 / 屏蔽词实时统计"
+msgstr "Counted live from the current field list / ignore words"

@@ -457,20 +457,29 @@ msgstr "参数新增"
 msgid "参数移除"
 msgstr "参数移除"
 
-msgid "仅列出有变更的版本；参数按条目分组，版本从左到右递增。"
-msgstr "仅列出有变更的版本；参数按条目分组，版本从左到右递增。"
+msgid "新增参数"
+msgstr "新增参数"
 
-msgid "该舰于 {label}加入；加入时的初始参数不计入变更。"
-msgstr "该舰于 {label}加入；加入时的初始参数不计入变更。"
+msgid "移除参数"
+msgstr "移除参数"
+
+msgid "仅列出有变更的版本，自动隐藏部分无关或已弃用参数。"
+msgstr "仅列出有变更的版本，自动隐藏部分无关或已弃用参数。"
+
+msgid "该舰于 {label} 加入。"
+msgstr "该舰于 {label} 加入。"
+
+msgid "该舰于 {label}加入。加入时的初始参数不计入变更。"
+msgstr "该舰于 {label}加入。加入时的初始参数不计入变更。"
 
 msgid "下表列出加入后发生变更的参数。"
 msgstr "下表列出加入后发生变更的参数。"
 
-msgid "该舰在数据起点 {label} 之前已加入；下表列出 {label} 起的参数变更。"
-msgstr "该舰在数据起点 {label} 之前已加入；下表列出 {label} 起的参数变更。"
+msgid "该舰在数据起点 {label} 之前已加入。下表列出 {label} 起的参数变更。"
+msgstr "该舰在数据起点 {label} 之前已加入。下表列出 {label} 起的参数变更。"
 
-msgid "该舰于 {label}移除。"
-msgstr "该舰于 {label}移除。"
+msgid "该舰于 {label} 移除。"
+msgstr "该舰于 {label} 移除。"
 
 msgid "该舰加入后暂无变更"
 msgstr "该舰加入后暂无变更"
@@ -481,11 +490,11 @@ msgstr "该舰已移除"
 msgid "暂无记录到的变更"
 msgstr "暂无记录到的变更"
 
-msgid "该舰在数据起点 {label} 之前已加入；{label} 起没有记录到参数变更。"
-msgstr "该舰在数据起点 {label} 之前已加入；{label} 起没有记录到参数变更。"
+msgid "该舰在数据起点 {label} 之前已加入。{label} 起没有记录到参数变更。"
+msgstr "该舰在数据起点 {label} 之前已加入。{label} 起没有记录到参数变更。"
 
-msgid "该舰于 {label}移除，未记录到参数变更。"
-msgstr "该舰于 {label}移除，未记录到参数变更。"
+msgid "该舰于 {label} 移除，未记录到参数变更。"
+msgstr "该舰于 {label} 移除，未记录到参数变更。"
 
 msgid "该配件新增后尚无参数变更。"
 msgstr "该配件新增后尚无参数变更。"
@@ -596,11 +605,8 @@ msgstr "该舰在数据起点 {label} 之前已加入。"
 msgid "参数时间线"
 msgstr "参数时间线"
 
-msgid "字段范围：simple/field-tree.conf"
-msgstr "字段范围：simple/field-tree.conf"
-
 msgid "当前字段清单隐藏了该舰的全部参数。"
 msgstr "当前字段清单隐藏了该舰的全部参数。"
 
-msgid "生成时的参数总数；表格按 field-tree.conf 实时过滤"
-msgstr "生成时的参数总数；表格按 field-tree.conf 实时过滤"
+msgid "按当前字段清单 / 屏蔽词实时统计"
+msgstr "按当前字段清单 / 屏蔽词实时统计"

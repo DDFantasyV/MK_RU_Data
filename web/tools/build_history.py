@@ -22,6 +22,9 @@ Design rules:
   Consecutive identical events are collapsed; on a same-version branch the
   later event's old value is rebased onto the value already shown.
 * Output is deterministic: sorted keys, no timestamps, no absolute paths.
+* No field masking is applied here: ``field-tree.conf`` / ``field-ignore.conf``
+  are applied by the pages at runtime, so every parameter row is kept in the
+  bundle and editing either file takes effect on refresh without rebuilding.
 """
 from __future__ import annotations
 
@@ -34,13 +37,11 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import gpdiff  # noqa: E402
-import gen_simple_fields as gsf  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 DATA = os.path.join(ROOT, "web", "data")
 PERIODS = os.path.join(DATA, "periods")
 OUT = os.path.join(DATA, "history.json")
-FIELD_CONF = os.path.join(ROOT, "web", "simple", "field-tree.conf")
 NAMES = os.path.join(DATA, "names.json")
 
 #: same set as simple/app.js and gen_names.py
@@ -100,43 +101,6 @@ def period_meta(p):
     }
 
 
-def load_field_filter():
-    """Parse ``field-tree.conf`` with the same inheritance the pages use.
-
-    ``true`` shows a node and its whole subtree, ``false`` hides it, unlisted
-    children inherit their parent, and top-level paths default to hidden.
-    A missing config falls back to “show everything”.
-    """
-    config = {}
-    try:
-        with open(FIELD_CONF, "r", encoding="utf-8") as fh:
-            for line in fh:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                m = re.match(r"^(.*?):\s*(true|false)\s*;?\s*$", line)
-                if m:
-                    config[m.group(1).strip()] = m.group(2) == "true"
-    except OSError:
-        return lambda keys: True
-    if not config:
-        return lambda keys: True
-
-    def visible(keys):
-        path = ""
-        shown = False
-        for key in keys:
-            path = path + " >> " + key if path else key
-            value = config.get(path)
-            if value is False:
-                return False
-            if value is True:
-                shown = True
-        return shown
-
-    return visible
-
-
 def load_names():
     try:
         with open(NAMES, "r", encoding="utf-8") as fh:
@@ -144,57 +108,6 @@ def load_names():
         return blob.get("names") or {}
     except Exception:
         return {}
-
-
-def split_path(path):
-    """Same segmentation as assets/fields.js."""
-    out = []
-    for part in str(path).split("."):
-        m = re.match(r"^([^\[\]]*)((?:\[\d+\])*)$", part)
-        if not m:
-            out.append(part)
-            continue
-        if m.group(1):
-            out.append(m.group(1))
-        out.extend(re.findall(r"\[\d+\]", m.group(2)))
-    return out
-
-
-def is_noise_path(path, value, asset_like):
-    """Same noise rules as the simple edition's field list, applied per path.
-
-    ``field-tree.conf`` only carries first-level groups, so armour tables,
-    model/effect paths and internal keys would otherwise leak into a history.
-    """
-    keys = tuple(split_path(path))
-    if not keys:
-        return True
-    if gsf.is_noise(keys, asset_like):
-        return True
-    if isinstance(value, str) and value and gsf.ASSET_PATH.search(value):
-        return True
-    return False
-
-
-def collect_asset_like(periods):
-    """``{path tuple: True}`` for paths whose values are always resource paths."""
-    state = {}
-    for pm in periods:
-        with open(os.path.join(PERIODS, pm["id"] + ".json"), "r", encoding="utf-8") as fh:
-            blob = json.load(fh)
-        for entry in blob.get("entries", ()):
-            if not is_ship_related(entry):
-                continue
-            for row in entry.get("f") or ():
-                if len(row) > 3 and row[3] == "grp":
-                    continue
-                keys = tuple(gsf.segments(row[0]))
-                value = row[2] if row[2] is not None else row[1]
-                if not isinstance(value, str) or not value:
-                    continue
-                state[keys] = state.get(keys, 0) | (
-                    1 if gsf.ASSET_PATH.search(value) else 2)
-    return {keys: value == 1 for keys, value in state.items()}
 
 
 # --------------------------------------------------------------------------
@@ -398,8 +311,6 @@ def main(argv=None):
         raise SystemExit("no periods in scope")
 
     names = load_names()
-    field_filter = load_field_filter()
-    asset_like = collect_asset_like(periods)
     meta = collect_ship_meta()
 
     # roster: every ship that appears in any period, plus latest metadata
@@ -509,13 +420,7 @@ def main(argv=None):
                         seg = str(field_path).split(".", 1)[0]
                         if owner not in row_owner_map.get(seg, ()):
                             continue
-                    if not field_filter(split_path(field_path)):
-                        continue
                     before, after, change = row[1], row[2], row[3]
-                    if is_noise_path(field_path,
-                                     after if after is not None else before,
-                                     asset_like):
-                        continue
                     rec["rows"].setdefault(field_path, []).append(
                         [pm["id"], change, before, after])
 

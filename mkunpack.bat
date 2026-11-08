@@ -148,7 +148,7 @@ if errorlevel 1 (
     goto :finish
 )
 
-"%PY_EXE%" -u "web\tools\gen_simple_fields.py" --max-depth 1
+"%PY_EXE%" -u "web\tools\gen_simple_fields.py" --max-depth 2 --no-noise
 if errorlevel 1 (
     echo.
     echo [ERROR] 简洁版字段清单生成失败
