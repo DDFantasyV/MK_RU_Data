@@ -104,12 +104,14 @@ msgstr "English"
    ```
 
    `label` 本身也是一个 msgid（语言自称），需要在三个语言文件里都存在；
-3. 顶栏下拉框由 `LOCALES` 自动生成，无需改 HTML；
+3. 顶栏下拉框由 `LOCALES` 自动生成，无需改 HTML；浏览器 / 系统语言识别和 `?lang=xx` 也按 `LOCALES` 的 `code` / `tag` 自动匹配，不需要再改 `normalizeLocale`；
 4. 运行校验脚本。
 
 ## 运行时行为
 
-* 语言优先级：`?lang=` 参数 → `localStorage.mk.locale` → `<html lang>` → 默认 `zh-CN`；
+* 语言优先级：`?lang=` 参数 → `localStorage.mk.locale`（手动选择过）→ 浏览器 / 系统语言 → `<html lang>` → 默认 `zh-CN`；
+* 首次访问（没有 `?lang=`、也没手动选过）时依次读取 `navigator.languages`（按用户偏好排序，Windows 上即“首选语言”列表）、`navigator.language`、`Intl.DateTimeFormat().resolvedOptions().locale`；只匹配简体中文 / English / Русский，其它语言（如 `ja-JP`、`de-DE`）仍回退到默认中文。`zh-Hans` / `zh-TW` 等中文变体都归到简体中文，`en-GB` / `ru-RU` 等归到对应语言；
+* 自动识别**不写** `localStorage`，所以系统语言变了，下次打开会跟着变；在顶栏手动选择才会记住。想清除记忆、重新自动识别，可打开 `?lang=auto`（处理完会从地址栏移除该参数）；
 * 找不到译文时回退到 msgid（即简体中文），页面不会因缺词条而空白；
 * `.po` 读取失败只在控制台告警，界面保持中文；
 * 切换语言会重画当前页面，保留期次、筛选条件和已展开的条目；

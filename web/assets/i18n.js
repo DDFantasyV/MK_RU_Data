@@ -139,12 +139,46 @@ const MK_i18n = (function () {
     return LOCALES.find((l) => l.code === code) || LOCALES[0];
   }
 
+  /* 只认 LOCALES 里列出的语言：zh、zh-Hans、zh-TW 一律归到简体中文，
+     en-GB / ru-RU 等区域变体归到对应语言。 */
   function normalizeLocale(code) {
     if (!code) return null;
-    const value = String(code).replace(/_/g, '-').toLowerCase();
-    if (value === 'zh' || value.indexOf('zh-') === 0) return 'zh-CN';
-    if (value === 'en' || value.indexOf('en-') === 0) return 'en';
-    if (value === 'ru' || value.indexOf('ru-') === 0) return 'ru';
+    const value = String(code).trim().replace(/_/g, '-').toLowerCase();
+    if (!value) return null;
+    for (const locale of LOCALES) {
+      if (value === locale.code.toLowerCase() || value === locale.tag.toLowerCase()) return locale.code;
+    }
+    for (const locale of LOCALES) {
+      const base = locale.tag.toLowerCase().split('-')[0];
+      if (value === base || value.indexOf(base + '-') === 0) return locale.code;
+    }
+    return null;
+  }
+
+  /* 浏览器 / 系统的语言偏好：navigator.languages 按优先级排列（Windows 上
+     就是“首选语言”列表），navigator.language 是其中第一项；Intl 的
+     resolved locale 反映浏览器 / 系统的区域设置，作为最后的兜底。 */
+  function preferredLanguages() {
+    const list = [];
+    const add = (value) => {
+      if (typeof value === 'string' && value && list.indexOf(value) === -1) list.push(value);
+    };
+    try {
+      if (Array.isArray(navigator.languages)) navigator.languages.forEach(add);
+      add(navigator.language);
+    } catch (err) { /* 老浏览器 / 隐私模式：忽略 */ }
+    try {
+      add(Intl.DateTimeFormat().resolvedOptions().locale);
+    } catch (err) { /* 没有 Intl：忽略 */ }
+    return list;
+  }
+
+  /** 按浏览器 / 系统语言偏好返回最合适的界面语言，识别不了返回 null。 */
+  function detectLocale() {
+    for (const language of preferredLanguages()) {
+      const code = normalizeLocale(language);
+      if (code) return code;
+    }
     return null;
   }
 
@@ -170,9 +204,30 @@ const MK_i18n = (function () {
     try { localStorage.setItem(STORAGE_KEY, code); } catch (err) { /* 隐私模式忽略 */ }
   }
 
+  function clearStoredLocale() {
+    try { localStorage.removeItem(STORAGE_KEY); } catch (err) { /* 隐私模式忽略 */ }
+  }
+
+  /* ?lang=auto 只用于“重新自动识别”，用完从地址栏去掉，避免刷新时反复清空手动选择。 */
+  function dropLangParam() {
+    try {
+      const url = new URL(location.href);
+      if (!url.searchParams.has('lang')) return;
+      url.searchParams.delete('lang');
+      history.replaceState(null, '', url.pathname + url.search + url.hash);
+    } catch (err) { /* file:// 或旧浏览器：保持原样 */ }
+  }
+
   function pickLocale() {
     let param = '';
     try { param = new URLSearchParams(location.search).get('lang') || ''; } catch (err) { param = ''; }
+
+    if (param.trim().toLowerCase() === 'auto') {
+      clearStoredLocale();
+      dropLangParam();
+      return { code: detectLocale() || DEFAULT_CODE, persist: false };
+    }
+
     const fromParam = normalizeLocale(param);
     if (fromParam) return { code: fromParam, persist: true };
 
@@ -180,6 +235,11 @@ const MK_i18n = (function () {
     try { stored = localStorage.getItem(STORAGE_KEY) || ''; } catch (err) { stored = ''; }
     const fromStore = normalizeLocale(stored);
     if (fromStore) return { code: fromStore, persist: false };
+
+    /* 没有手动选择时跟随浏览器 / 系统：中文 → zh-CN、英文 → en、俄文 → ru；
+       其它语言回退到页面声明的 <html lang>，再回退到默认中文。 */
+    const fromBrowser = detectLocale();
+    if (fromBrowser) return { code: fromBrowser, persist: false };
 
     const fromHtml = normalizeLocale(DOC.lang);
     if (fromHtml) return { code: fromHtml, persist: false };
